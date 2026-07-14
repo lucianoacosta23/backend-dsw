@@ -1,0 +1,17 @@
+# Dependencias
+node_modules/
+
+# Archivos compilados
+dist/
+
+# Variables de entorno
+.env
+
+# Cobertura de tests
+coverage/
+
+# Configuración local de VS Code
+.vscode/
+
+# Archivos del sistema (macOS)
+.DS_Store

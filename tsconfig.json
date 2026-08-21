@@ -18,6 +18,11 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
 
+    /* Decorators */
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": false,
+    "useDefineForClassFields": false,
+
     /* Modules */
     "verbatimModuleSyntax": true,
     "isolatedModules": true,

@@ -1,11 +1,18 @@
 import { Router } from 'express';
+import {
+  findAll,
+  findById,
+  create,
+  update,
+  remove,
+} from './user.controller.js';
 
-const router = Router();
+const userRouter = Router();
 
-router.get('/', (_req, res) => {
-  res.status(200).json({
-    message: 'Users route works',
-  });
-});
+userRouter.get('/', findAll);
+userRouter.get('/:id', findById);
+userRouter.post('/', create);
+userRouter.patch('/:id', update);
+userRouter.delete('/:id', remove);
 
-export default router;
+export default userRouter;

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AppError } from '../shared/errors/app-error.js';
 import userRoutes from '../modules/users/user.routes.js';
-
+import userRouter from '../modules/users/user.routes.js';
 const router = Router();
 
 
@@ -23,5 +23,5 @@ router.get('/health',(req,res)=>{
 
 router.use('/users', userRoutes);
 
-
+router.use('/users', userRouter);
 export default router;

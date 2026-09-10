@@ -2,24 +2,24 @@ import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
 
 @Entity()
 export class User {
-  @PrimaryKey()
+  @PrimaryKey({ type: 'number' })
   id?: number;
 
-  @Property()
+  @Property({ type: 'string' })
   username!: string;
 
-  @Property()
+  @Property({ type: 'string' })
   fullName!: string;
 
-  @Property()
+  @Property({ type: 'string' })
   email!: string;
 
-  @Property()
+  @Property({ type: 'string' })
   category!: string;
 
-  @Property({ unique: true })
+  @Property({ type: 'string', unique: true })
   spotifyId!: string;
 
-  @Property({ onCreate: () => new Date() })
+  @Property({ type: 'Date', onCreate: () => new Date() })
   createdAt!: Date;
 }

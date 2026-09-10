@@ -9,6 +9,13 @@
     "start": "node dist/server.js",
     "check": "tsc --noEmit"
   },
+  "mikro-orm": {
+  "configPaths": [
+    "./src/config/mikro-orm.config.ts"
+  ],
+  "preferTs": true,
+  "tsLoader": "tsx"
+},
   "dependencies": {
     "@mikro-orm/core": "^6.6.16",
     "@mikro-orm/postgresql": "^6.6.16",

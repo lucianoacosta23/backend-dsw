@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { defineConfig } from '@mikro-orm/postgresql';
 import { User } from '../modules/users/user.entity.js';
+import { Artist } from '../modules/artists/artist.entity.js';
 import { Migrator } from '@mikro-orm/migrations';
 const dbConfig = {
   host: process.env.DB_HOST ?? 'localhost',
@@ -11,7 +12,7 @@ const dbConfig = {
 };
 
 export default defineConfig({
-  entities: [User],
+  entities: [User, Artist],
   extensions: [Migrator],
   ...dbConfig,
 

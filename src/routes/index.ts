@@ -4,6 +4,7 @@ import userRoutes from '../modules/users/user.routes.js';
 import userRouter from '../modules/users/user.routes.js';
 import artistRouter from '../modules/artists/artist.route.js';
 import genreRouter from '../modules/genres/genres.route.js';
+import releaseRouter from '../modules/releases/release.route.js';
 const router = Router();
 
 
@@ -24,7 +25,7 @@ router.get('/health',(req,res)=>{
 
 
 router.use('/users', userRoutes);
-
+router.use('/releases', releaseRouter);
 router.use('/users', userRouter);
 router.use('/artists', artistRouter);
 router.use('/genres', genreRouter);

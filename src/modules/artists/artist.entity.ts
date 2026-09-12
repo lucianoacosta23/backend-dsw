@@ -13,4 +13,7 @@ biography: string | null = null;
 
 @Property({ type: 'text', nullable: true })
 imageUrl: string | null = null; 
+
+@Property({ type: 'string', nullable: true, unique: true })
+spotifyId: string | null = null;
 }

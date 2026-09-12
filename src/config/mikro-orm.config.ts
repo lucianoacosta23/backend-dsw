@@ -3,6 +3,8 @@ import { defineConfig } from '@mikro-orm/postgresql';
 import { User } from '../modules/users/user.entity.js';
 import { Artist } from '../modules/artists/artist.entity.js';
 import { Genre } from '../modules/genres/genres.entity.js';
+import { Release } from '../modules/releases/release.entity.js';
+import { Track } from '../modules/tracks/track.entity.js';
 import { Migrator } from '@mikro-orm/migrations';
 
 const dbConfig = {
@@ -14,7 +16,7 @@ const dbConfig = {
 };
 
 export default defineConfig({
-  entities: [User, Artist, Genre],
+  entities: [User, Artist, Genre, Release, Track],
   extensions: [Migrator],
   ...dbConfig,
 

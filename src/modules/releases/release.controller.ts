@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { ForeignKeyConstraintViolationException } from '@mikro-orm/core';
+import {DriverException, ForeignKeyConstraintViolationException } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
 import {
@@ -394,7 +394,14 @@ export async function remove(
 
     res.status(204).send();
   } catch (error) {
-    if (error instanceof ForeignKeyConstraintViolationException) {
+    const isRestrictedDelete =
+      error instanceof DriverException &&
+      error.code === '23001';
+
+    if (
+      error instanceof ForeignKeyConstraintViolationException ||
+      isRestrictedDelete
+    ) {
       next(new AppError(
         'No se puede eliminar el lanzamiento porque tiene registros asociados',
         409,

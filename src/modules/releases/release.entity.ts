@@ -11,7 +11,8 @@ import {
 import { Artist } from '../artists/artist.entity.js';
 import { Genre } from '../genres/genres.entity.js';
 import { Track } from '../tracks/track.entity.js';
-
+import { ReleaseArtist } from './release-artist.entity.js';
+import { ReleaseGenre } from './release-genre.entity.js';
 
 export enum ReleaseType {
   ALBUM = 'ALBUM',
@@ -53,11 +54,17 @@ export class Release {
   @Enum(() => ReleaseDatePrecision)
   releaseDatePrecision!: ReleaseDatePrecision;
 
-  @ManyToMany(() => Artist)
-  artists = new Collection<Artist>(this);
+ @ManyToMany({
+  entity: () => Artist,
+  pivotEntity: () => ReleaseArtist,
+})
+artists = new Collection<Artist>(this);
 
-  @ManyToMany(() => Genre)
-  genres = new Collection<Genre>(this);
+@ManyToMany({
+  entity: () => Genre,
+  pivotEntity: () => ReleaseGenre,
+})
+genres = new Collection<Genre>(this);
 
   @OneToMany(() => Track, track => track.release)
   tracks = new Collection<Track>(this);

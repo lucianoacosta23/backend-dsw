@@ -413,7 +413,7 @@
             "id"
           ],
           "updateRule": "cascade",
-          "deleteRule": "cascade"
+          "deleteRule": "restrict"
         },
         "release_artists_release_id_foreign": {
           "columnNames": [
@@ -495,7 +495,7 @@
             "id"
           ],
           "updateRule": "cascade",
-          "deleteRule": "cascade"
+          "deleteRule": "restrict"
         },
         "release_genres_release_id_foreign": {
           "columnNames": [
@@ -751,7 +751,7 @@
             "id"
           ],
           "updateRule": "cascade",
-          "deleteRule": "cascade"
+          "deleteRule": "restrict"
         },
         "track_artists_track_id_foreign": {
           "columnNames": [

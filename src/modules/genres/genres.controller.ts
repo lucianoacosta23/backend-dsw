@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { UniqueConstraintViolationException } from '@mikro-orm/core';
+import { DriverException,
+  ForeignKeyConstraintViolationException, UniqueConstraintViolationException } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
 import { GenreRepository } from './genres.repository.js';
@@ -159,7 +160,22 @@ export async function remove(
     }
 
     res.status(204).send();
-  } catch (error) {
+    } catch (error) {
+    const isRestrictedDelete =
+      error instanceof DriverException &&
+      error.code === '23001';
+
+    if (
+      error instanceof ForeignKeyConstraintViolationException ||
+      isRestrictedDelete
+    ) {
+      next(new AppError(
+        'No se puede eliminar el género porque tiene registros asociados',
+        409,
+      ));
+      return;
+    }
+
     next(error);
   }
 }

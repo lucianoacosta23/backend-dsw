@@ -10,6 +10,7 @@ import type { Rel } from '@mikro-orm/core';
 
 import { Artist } from '../artists/artist.entity.js';
 import { Release } from '../releases/release.entity.js';
+import { TrackArtist } from './track-artist.entity.js';
 
 @Entity()
 export class Track {
@@ -37,6 +38,9 @@ export class Track {
   @ManyToOne(() => Release, { deleteRule: 'restrict' })
   release!: Rel<Release>;
 
-  @ManyToMany(() => Artist)
-  artists = new Collection<Artist>(this);
+@ManyToMany({
+  entity: () => Artist,
+  pivotEntity: () => TrackArtist,
+})
+artists = new Collection<Artist>(this);
 }

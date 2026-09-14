@@ -3,6 +3,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../shared/errors/app-error.js';
 import { ArtistRepository } from './artist.repository.js';
 import type { UpdateArtistInput } from './artist.repository.js';
+import {
+  DriverException,
+  ForeignKeyConstraintViolationException,
+} from '@mikro-orm/core';
 
 const artistRepository = new ArtistRepository();
 
@@ -207,6 +211,21 @@ export async function remove(
 
     res.status(204).send();
   } catch (error) {
+    const isRestrictedDelete =
+      error instanceof DriverException &&
+      error.code === '23001';
+
+    if (
+      error instanceof ForeignKeyConstraintViolationException ||
+      isRestrictedDelete
+    ) {
+      next(new AppError(
+        'No se puede eliminar el artista porque tiene registros asociados',
+        409,
+      ));
+      return;
+    }
+
     next(error);
   }
 }

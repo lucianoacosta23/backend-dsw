@@ -10,25 +10,37 @@
     "check": "tsc --noEmit"
   },
   "mikro-orm": {
-  "configPaths": [
-    "./src/config/mikro-orm.config.ts"
-  ],
-  "preferTs": true,
-  "tsLoader": "tsx"
-},
+    "configPaths": [
+      "./src/config/mikro-orm.config.ts"
+    ],
+    "preferTs": true,
+    "tsLoader": "tsx"
+  },
   "dependencies": {
     "@mikro-orm/core": "^6.6.16",
     "@mikro-orm/postgresql": "^6.6.16",
+    "argon2": "^0.45.1",
+    "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "pg": "^8.23.0"
   },
+  "overrides": {
+  "@rushstack/node-core-library": {
+    "ajv": "8.20.0"
+  }
+},
   "devDependencies": {
     "@mikro-orm/cli": "^6.6.16",
     "@mikro-orm/migrations": "^6.6.16",
+    "@types/connect-pg-simple": "^7.0.3",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
     "@types/node": "^26.1.1",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2"
   }

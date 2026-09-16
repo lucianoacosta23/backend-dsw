@@ -32,7 +32,7 @@ export class UserRepository {
 
   user.username = data.username;
   user.fullName = data.fullName;
-  user.email = data.email;
+  user.email = data.email.trim().toLowerCase();
   user.spotifyId = data.spotifyId;
   user.category = 'USER';
 

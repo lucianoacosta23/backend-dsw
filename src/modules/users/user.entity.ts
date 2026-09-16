@@ -11,14 +11,19 @@ export class User {
   @Property({ type: 'string' })
   fullName!: string;
 
-  @Property({ type: 'string' })
-  email!: string;
+  @Property({ type: 'string', nullable: true, unique: true })
+email: string | null = null;
 
   @Property({ type: 'string' })
   category!: string;
 
-  @Property({ type: 'string', unique: true })
-  spotifyId!: string;
+ 
+
+@Property({ type: 'string', nullable: true, hidden: true })
+passwordHash: string | null = null;
+
+@Property({ type: 'string', nullable: true, unique: true })
+spotifyId: string | null = null;
 
   @Property({ type: 'Date', onCreate: () => new Date() })
   createdAt!: Date;

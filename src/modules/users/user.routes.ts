@@ -1,18 +1,38 @@
 import { Router } from 'express';
+
 import {
   findAll,
   findById,
-  create,
   update,
   remove,
 } from './user.controller.js';
 
+import {
+  requireAuth,
+  requireAdmin,
+  requireSelfOrAdmin,
+  requireMutationHeader,
+} from '../../middlewares/auth.middleware.js';
+
 const userRouter = Router();
 
-userRouter.get('/', findAll);
-userRouter.get('/:id', findById);
-userRouter.post('/', create);
-userRouter.patch('/:id', update);
-userRouter.delete('/:id', remove);
+userRouter.use(requireAuth);
+
+userRouter.get('/', requireAdmin, findAll);
+userRouter.get('/:id', requireSelfOrAdmin, findById);
+
+userRouter.patch(
+  '/:id',
+  requireSelfOrAdmin,
+  requireMutationHeader,
+  update,
+);
+
+userRouter.delete(
+  '/:id',
+  requireSelfOrAdmin,
+  requireMutationHeader,
+  remove,
+);
 
 export default userRouter;

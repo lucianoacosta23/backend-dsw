@@ -3,6 +3,7 @@ import { UserRepository } from './user.repository.js';
 import { UniqueConstraintViolationException } from '@mikro-orm/core';
 import { AppError } from '../../shared/errors/app-error.js';
 import type { UpdateUserInput } from './user.repository.js';
+import type { User } from './user.entity.js';
 const userRepository = new UserRepository();
 
 export async function findAll(
@@ -15,7 +16,7 @@ export async function findAll(
 
     res.status(200).json({
       message: 'Listado de usuarios',
-      data: users,
+      data: users.map(userResponse),
     });
   } catch (error) {
     next(error);
@@ -115,7 +116,7 @@ export async function findById(
 
     res.status(200).json({
       message: 'Usuario encontrado',
-      data: user,
+      data: userResponse(user),
     });
   } catch (error) {
     next(error);
@@ -185,7 +186,8 @@ export async function update(
         );
       }
 
-      data[field] = trimmedValue;
+      data[field] =
+  field === 'email' ? trimmedValue.toLowerCase() : trimmedValue;
     }
 
     if (
@@ -203,9 +205,14 @@ export async function update(
 
     res.status(200).json({
       message: 'Usuario actualizado',
-      data: user,
+      data: userResponse(user),
     });
-  } catch (error) {
+    } catch (error) {
+    if (error instanceof UniqueConstraintViolationException) {
+      next(new AppError('Ya existe un usuario con esos datos', 409));
+      return;
+    }
+
     next(error);
   }
 }
@@ -237,4 +244,13 @@ export async function remove(
   } catch (error) {
     next(error);
   }
+}function userResponse(user: User) {
+  return {
+    id: user.id,
+    username: user.username,
+    fullName: user.fullName,
+    email: user.email,
+    category: user.category,
+    createdAt: user.createdAt,
+  };
 }

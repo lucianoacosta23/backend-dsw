@@ -1,5 +1,11 @@
 import type { Request, Response, NextFunction } from 'express';
 import { UniqueConstraintViolationException } from '@mikro-orm/core';
+import {
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
+
+import { SpotifyAuthClient } from './spotify-auth.client.js';
 import * as argon2 from 'argon2';
 import type { User } from '../users/user.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
@@ -306,6 +312,149 @@ export async function logout(
     res.setHeader('Cache-Control', 'no-store');
     res.status(204).send();
   } catch (error) {
+    next(error);
+  }
+}
+function createSpotifyAuthClient(): SpotifyAuthClient {
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
+
+  if (!clientId || !clientSecret || !redirectUri) {
+    throw new Error(
+      'Faltan SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET o SPOTIFY_REDIRECT_URI',
+    );
+  }
+
+  return new SpotifyAuthClient(
+    clientId,
+    clientSecret,
+    redirectUri,
+  );
+}
+
+function queryString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0
+    ? value
+    : null;
+}
+
+function validState(
+  received: string,
+  expected: string,
+): boolean {
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+
+  return (
+    receivedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(receivedBuffer, expectedBuffer)
+  );
+}
+
+export async function spotifyLogin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const state = randomBytes(32).toString('hex');
+
+    req.session.spotifyOauthState = state;
+    await saveSession(req);
+
+    const client = createSpotifyAuthClient();
+
+    res.redirect(client.authorizationUrl(state));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function spotifyCallback(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+
+    const receivedState = queryString(req.query.state);
+    const expectedState = req.session.spotifyOauthState;
+
+    delete req.session.spotifyOauthState;
+    await saveSession(req);
+
+    if (
+      !receivedState ||
+      !expectedState ||
+      !validState(receivedState, expectedState)
+    ) {
+      throw new AppError(
+        'La validación de seguridad de Spotify falló',
+        400,
+      );
+    }
+
+    const spotifyError = queryString(req.query.error);
+
+    if (spotifyError) {
+      throw new AppError(
+        spotifyError === 'access_denied'
+          ? 'El usuario canceló la autorización de Spotify'
+          : 'Spotify no pudo autorizar el acceso',
+        400,
+      );
+    }
+
+    const code = queryString(req.query.code);
+
+    if (!code) {
+      throw new AppError(
+        'Spotify no devolvió un código de autorización',
+        400,
+      );
+    }
+
+    const client = createSpotifyAuthClient();
+    const accessToken = await client.exchangeCode(code);
+    const profile = await client.getCurrentProfile(accessToken);
+
+    let user = await authRepository.findBySpotifyId(
+      profile.accountId,
+    );
+
+    if (!user) {
+      user = await authRepository.createSpotify({
+        spotifyId: profile.accountId,
+        displayName: profile.displayName,
+      });
+    }
+
+    if (user.id === undefined) {
+      throw new Error('El usuario no tiene un ID persistido');
+    }
+
+    await regenerateSession(req);
+
+    req.session.userId = user.id;
+    await saveSession(req);
+
+    res.status(200).json({
+      message: 'Sesión iniciada con Spotify correctamente',
+      data: publicUser(user),
+    });
+  } catch (error) {
+    if (error instanceof UniqueConstraintViolationException) {
+      next(
+        new AppError(
+          'La cuenta de Spotify ya está vinculada a otro usuario',
+          409,
+        ),
+      );
+      return;
+    }
+
     next(error);
   }
 }

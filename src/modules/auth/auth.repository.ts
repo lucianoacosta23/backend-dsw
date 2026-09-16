@@ -8,6 +8,10 @@ interface CreateLocalUserData {
   email: string;
   passwordHash: string;
 }
+interface CreateSpotifyUserData {
+  spotifyId: string;
+  displayName: string | null;
+}
 
 function getEntityManager() {
   const em = RequestContext.getEntityManager();
@@ -42,8 +46,37 @@ async function createLocal(data: CreateLocalUserData): Promise<User> {
 async function findById(id: number): Promise<User | null> {
   return getEntityManager().findOne(User, { id });
 }
+async function findBySpotifyId(
+  spotifyId: string,
+): Promise<User | null> {
+  return getEntityManager().findOne(User, { spotifyId });
+}
+
+async function createSpotify(
+  data: CreateSpotifyUserData,
+): Promise<User> {
+  const em = getEntityManager();
+
+  const fallbackName = `spotify_${data.spotifyId}`.slice(0, 255);
+  const name = data.displayName ?? fallbackName;
+
+  const user = new User();
+  user.username = name;
+  user.fullName = name;
+  user.email = null;
+  user.passwordHash = null;
+  user.spotifyId = data.spotifyId;
+  user.category = 'USER';
+  user.createdAt = new Date();
+
+  await em.persistAndFlush(user);
+
+  return user;
+}
 export const authRepository = {
   findByEmail,
   findById,
+  findBySpotifyId,
   createLocal,
+  createSpotify,
 };

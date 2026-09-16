@@ -1,5 +1,9 @@
 import { Router } from 'express';
-
+import {
+  requireAuth,
+  requireAdmin,
+  requireMutationHeader,
+} from '../../middlewares/auth.middleware.js';
 import {
   findAll,
   findById,
@@ -12,8 +16,29 @@ const trackRouter = Router();
 
 trackRouter.get('/', findAll);
 trackRouter.get('/:id', findById);
-trackRouter.post('/', create);
-trackRouter.patch('/:id', update);
-trackRouter.delete('/:id', remove);
+
+trackRouter.post(
+  '/',
+  requireAuth,
+  requireAdmin,
+  requireMutationHeader,
+  create,
+);
+
+trackRouter.patch(
+  '/:id',
+  requireAuth,
+  requireAdmin,
+  requireMutationHeader,
+  update,
+);
+
+trackRouter.delete(
+  '/:id',
+  requireAuth,
+  requireAdmin,
+  requireMutationHeader,
+  remove,
+);
 
 export default trackRouter;

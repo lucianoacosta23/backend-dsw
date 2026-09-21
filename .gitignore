@@ -16,3 +16,6 @@ coverage/
 # Archivos del sistema (macOS)
 .DS_Store
 /src/generated/prisma
+
+src/migrations/.snapshot-Nukeboxd_test.json
+

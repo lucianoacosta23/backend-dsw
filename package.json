@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": {
+  "scripts": { 
+    "test:spotify": "node --import=tsx --test tests/spotify.client.test.ts",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",

@@ -6,6 +6,7 @@ import genreRouter from '../modules/genres/genres.route.js';
 import releaseRouter from '../modules/releases/release.route.js';
 import trackRouter from '../modules/tracks/track.route.js';
 import authRouter from '../modules/auth/auth.route.js';
+import spotifyRouter from '../modules/spotify/spotify.route.js';
 const router = Router();
 
 
@@ -24,7 +25,7 @@ router.get('/health',(req,res)=>{
     });
 });
 
-
+router.use('/admin/spotify', spotifyRouter);
 router.use('/users', userRoutes);
 router.use('/releases', releaseRouter);
 router.use('/tracks', trackRouter);

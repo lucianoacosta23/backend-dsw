@@ -1,3 +1,41 @@
+import { SpotifyApiError } from './spotify-api.error.js';
+
+function checkSpotifyResponse(
+  response: Response,
+  allowNotFound: boolean,
+): void {
+  if (response.ok) {
+    return;
+  }
+
+  if (response.status === 429) {
+    const rawRetryAfter = response.headers.get('retry-after');
+
+    const retryAfter =
+      rawRetryAfter !== null && /^\d+$/.test(rawRetryAfter)
+        ? rawRetryAfter
+        : null;
+
+    throw new SpotifyApiError(
+      'Spotify alcanzó su límite de solicitudes. Reintentá más tarde.',
+      429,
+      retryAfter,
+    );
+  }
+
+  if (allowNotFound && response.status === 404) {
+    throw new SpotifyApiError(
+      'No se encontró el recurso solicitado en Spotify',
+      404,
+    );
+  }
+
+  throw new SpotifyApiError(
+    'Spotify no pudo completar la solicitud',
+    502,
+  );
+}
+
 function asObject(
   value: unknown,
   description: string,
@@ -7,7 +45,9 @@ function asObject(
     value === null ||
     Array.isArray(value)
   ) {
-    throw new Error(`Respuesta inválida de Spotify: ${description}`);
+    throw new Error(
+      `Respuesta inválida de Spotify: ${description}`,
+    );
   }
 
   return value as Record<string, unknown>;
@@ -46,15 +86,12 @@ export class SpotifyClient {
         body: new URLSearchParams({
           grant_type: 'client_credentials',
         }),
+        redirect: 'error',
         signal: AbortSignal.timeout(15000),
       },
     );
 
-    if (!response.ok) {
-      throw new Error(
-        `No se pudo obtener el token. HTTP ${response.status}`,
-      );
-    }
+    checkSpotifyResponse(response, false);
 
     const body: unknown = await response.json();
     const data = asObject(body, 'token');
@@ -71,7 +108,7 @@ export class SpotifyClient {
 
     this.accessToken = data.access_token;
 
-    // Lo renovamos un poco antes de su vencimiento.
+    // Renovamos el token un poco antes de su vencimiento.
     this.expiresAt =
       Date.now() + Math.max(0, data.expires_in - 60) * 1000;
 
@@ -109,27 +146,16 @@ export class SpotifyClient {
         continue;
       }
 
-      if (response.status === 429) {
-        const retryAfter = response.headers.get('retry-after');
-
-        throw new Error(
-          retryAfter
-            ? `Spotify alcanzó su límite. Reintentá después de ${retryAfter} segundos.`
-            : 'Spotify alcanzó su límite de solicitudes. Reintentá más tarde.',
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Error al consultar Spotify. HTTP ${response.status}`,
-        );
-      }
+      checkSpotifyResponse(response, true);
 
       const body: unknown = await response.json();
       return body;
     }
 
-    throw new Error('Spotify rechazó la autorización');
+    throw new SpotifyApiError(
+      'Spotify rechazó la autorización',
+      502,
+    );
   }
 
   async getAlbumWithTracks(albumId: string): Promise<{
@@ -148,7 +174,9 @@ export class SpotifyClient {
     );
 
     if (album.id !== albumId) {
-      throw new Error('Spotify devolvió un álbum diferente al solicitado');
+      throw new Error(
+        'Spotify devolvió un álbum diferente al solicitado',
+      );
     }
 
     const tracks: unknown[] = [];
@@ -158,7 +186,9 @@ export class SpotifyClient {
 
     while (true) {
       if (!Array.isArray(page.items)) {
-        throw new Error('Spotify devolvió una lista de pistas inválida');
+        throw new Error(
+          'Spotify devolvió una lista de pistas inválida',
+        );
       }
 
       tracks.push(...page.items);
@@ -167,8 +197,13 @@ export class SpotifyClient {
         break;
       }
 
-      if (typeof page.next !== 'string' || page.next.length === 0) {
-        throw new Error('Spotify devolvió una paginación inválida');
+      if (
+        typeof page.next !== 'string' ||
+        page.next.length === 0
+      ) {
+        throw new Error(
+          'Spotify devolvió una paginación inválida',
+        );
       }
 
       if (visitedPages.has(page.next)) {

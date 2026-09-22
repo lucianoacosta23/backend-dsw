@@ -3,6 +3,7 @@ Jukeboxd — Backend
 Backend del TP de Desarrollo de Software 2026. API desarrollada con Node.js, TypeScript, Express, MikroORM y PostgreSQL.
 
 Documentación de Review: [API, reglas, migración, pruebas e integraciones pendientes](docs/review.md).
+Documentación de Comment: [API, subárboles, concurrencia, migración y pruebas](docs/comment.md).
 
 Esta guía está pensada para trabajar en Windows con PowerShell. Ejecutar los comandos desde la carpeta `backend-dsw`, salvo la clonación inicial.
 

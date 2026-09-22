@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": { 
+    "test:comment": "node --import=tsx --test tests/comment.rules.test.ts tests/comment.integration.test.ts",
     "test:review": "node --import=tsx --test tests/review.rules.test.ts tests/review.integration.test.ts",
     "check:tests": "tsc -p tests/tsconfig.json",
     "test:spotify": "node --import=tsx --test tests/spotify.client.test.ts",

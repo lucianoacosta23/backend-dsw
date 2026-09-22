@@ -31,7 +31,6 @@ const admin = new pg.Client({
   password: process.env.DB_PASSWORD ?? '',
   connectionTimeoutMillis: 5000,
 });
-const migrationName = 'Migration20260922000000';
 const password = 'review-test-password';
 const repository = new ReviewRepository();
 let orm: MikroORM | undefined;
@@ -481,7 +480,7 @@ describe('Review con PostgreSQL, migraciones, rutas y sesiones reales', { concur
     }
   });
 
-  test('migración registra índices correctos y down/up afecta solamente Review', async () => {
+  test('migración registra índices y down/up de Review conserva usuarios y lanzamientos', async () => {
     const connection = database().em.getConnection();
     const indexes = await connection.execute<Array<{ indexname: string; indexdef: string }>>(
       "select indexname, indexdef from pg_indexes where tablename = 'review'",
@@ -496,12 +495,14 @@ describe('Review con PostgreSQL, migraciones, rutas y sesiones reales', { concur
     const em = database().em.fork();
     const users = await em.count(User);
     const releases = await em.count(Release);
-    await database().migrator.down({ migrations: [migrationName] });
+    // Retirar primero las tablas dependientes (Comment) antes de revertir Review.
+    // Todo ocurre exclusivamente en la base temporal de esta suite.
+    await database().migrator.down({ to: 'Migration20260922000000' });
     const absent = await connection.execute<Array<{ name: string | null }>>("select to_regclass('review') as name");
     assert.equal(absent[0]?.name, null);
     assert.equal(await em.count(User), users);
     assert.equal(await em.count(Release), releases);
-    await database().migrator.up({ migrations: [migrationName] });
+    await database().migrator.up();
     assert.equal(await em.count(Review), 0);
     const schemaDiff = await database().schema.getUpdateSchemaSQL({ wrap: false });
     assert.doesNotMatch(schemaDiff, /(?:alter table|create (?:unique )?index|drop (?:table|index))[^;]*\breview\b/i,

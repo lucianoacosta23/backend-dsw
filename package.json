@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": { 
+    "test:review": "node --import=tsx --test tests/review.rules.test.ts tests/review.integration.test.ts",
+    "check:tests": "tsc -p tests/tsconfig.json",
     "test:spotify": "node --import=tsx --test tests/spotify.client.test.ts",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",

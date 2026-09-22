@@ -7,6 +7,7 @@ import releaseRouter from '../modules/releases/release.route.js';
 import trackRouter from '../modules/tracks/track.route.js';
 import authRouter from '../modules/auth/auth.route.js';
 import spotifyRouter from '../modules/spotify/spotify.route.js';
+import reviewRouter from '../modules/reviews/review.route.js';
 const router = Router();
 
 
@@ -28,6 +29,7 @@ router.get('/health',(req,res)=>{
 router.use('/admin/spotify', spotifyRouter);
 router.use('/users', userRoutes);
 router.use('/releases', releaseRouter);
+router.use('/reviews', reviewRouter);
 router.use('/tracks', trackRouter);
 router.use('/artists', artistRouter);
 router.use('/genres', genreRouter);

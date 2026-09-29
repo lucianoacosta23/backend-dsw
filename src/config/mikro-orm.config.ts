@@ -10,6 +10,7 @@ import { ReleaseGenre } from '../modules/releases/release-genre.entity.js';
 import { TrackArtist } from '../modules/tracks/track-artist.entity.js';
 import { Session } from '../modules/auth/session.entity.js';
 import { Migrator } from '@mikro-orm/migrations';
+import { Follow } from '../modules/follows/follow.entity.js';
 
 const dbConfig = {
   host: process.env.DB_HOST ?? 'localhost',
@@ -20,7 +21,7 @@ const dbConfig = {
 };
 
 export default defineConfig({
-  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session],
+  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Follow],
   extensions: [Migrator],
   ...dbConfig,
 

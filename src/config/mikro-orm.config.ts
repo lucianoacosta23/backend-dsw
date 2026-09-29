@@ -9,6 +9,8 @@ import { ReleaseArtist } from '../modules/releases/release-artist.entity.js';
 import { ReleaseGenre } from '../modules/releases/release-genre.entity.js';
 import { TrackArtist } from '../modules/tracks/track-artist.entity.js';
 import { Session } from '../modules/auth/session.entity.js';
+import { Review } from '../modules/reviews/review.entity.js';
+import { Comment } from '../modules/comments/comment.entity.js';
 import { Migrator } from '@mikro-orm/migrations';
 import { Follow } from '../modules/follows/follow.entity.js';
 
@@ -21,7 +23,9 @@ const dbConfig = {
 };
 
 export default defineConfig({
-  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Follow],
+
+  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow],
+
   extensions: [Migrator],
   ...dbConfig,
 

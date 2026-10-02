@@ -6,6 +6,7 @@ import {
 } from '../../middlewares/auth.middleware.js';
 import {
   findAll,
+  findPopularAlbums,
   findById,
   create,
   update,
@@ -15,6 +16,7 @@ import {
 const releaseRouter = Router();
 
 releaseRouter.get('/', findAll);
+releaseRouter.get('/popular', findPopularAlbums);
 releaseRouter.get('/:id', findById);
 
 releaseRouter.post(

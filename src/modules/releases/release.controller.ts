@@ -15,6 +15,22 @@ import type {
 
 const releaseRepository = new ReleaseRepository();
 
+function parsePopularLimit(value: unknown): number {
+  if (value === undefined) return 10;
+
+  if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
+    throw new AppError('limit debe ser un entero entre 1 y 50', 400);
+  }
+
+  const limit = Number(value);
+
+  if (!Number.isSafeInteger(limit) || limit > 50) {
+    throw new AppError('limit debe ser un entero entre 1 y 50', 400);
+  }
+
+  return limit;
+}
+
 function parseId(value: unknown): number {
   if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
     throw new AppError('El ID debe ser un entero positivo', 400);
@@ -285,6 +301,42 @@ export async function findAll(
     res.status(200).json({
       message: 'Listado de lanzamientos',
       data: releases,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function findPopularAlbums(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const limit = parsePopularLimit(req.query.limit);
+    const albums = await releaseRepository.findPopularAlbums(limit);
+
+    res.status(200).json({
+      message: 'Álbumes más populares',
+      data: albums.map(({ release, reviewCount }) => ({
+        id: release.id,
+        spotifyId: release.spotifyId,
+        name: release.name,
+        type: release.type,
+        description: release.description,
+        imageUrl: release.imageUrl,
+        releaseDate: release.releaseDate,
+        releaseDatePrecision: release.releaseDatePrecision,
+        artists: release.artists.getItems().map(artist => ({
+          id: artist.id,
+          name: artist.name,
+          imageUrl: artist.imageUrl,
+          spotifyId: artist.spotifyId,
+        })),
+        reviewCount,
+      })),
+      sort: { field: 'reviewCount', direction: 'desc' },
+      limit,
     });
   } catch (error) {
     next(error);

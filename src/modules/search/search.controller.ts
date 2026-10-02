@@ -16,7 +16,7 @@ import { Artist } from '../artists/artist.entity.js';
 //import { AppError } from '../../errors/AppError'; 
 import { AppError } from '../../shared/errors/app-error.js';
 
-import { wrap, RequestContext } from '@mikro-orm/core';
+import { wrap } from '@mikro-orm/core';
 
 const trackRepo = new TrackRepository();
 const releaseRepo = new ReleaseRepository();
@@ -37,10 +37,7 @@ export async function searchAll(req: Request, res: Response, next: NextFunction)
         const searchTerm = (req.query.q as string)?.trim() || '';
         const type = (req.query.type as string)?.toLowerCase();
 
-        const em = RequestContext.getEntityManager();
-        const trackRepo = em.getRepository(Track);
-        const artistRepo = em.getRepository(Artist);
-        const releaseRepo = em.getRepository(Release);
+        
 
         // creamos las listas donde se guardan los datos en cada caso
         let tracks: Track[] = [];

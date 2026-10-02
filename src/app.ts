@@ -13,7 +13,8 @@ export default function createApp(orm: MikroORM) {
 
   app.use(
   cors({
-    origin: 'http://127.0.0.1:4200/',
+    origin: 'http://127.0.0.1:4200',
+
     credentials: true,
   }),
 );

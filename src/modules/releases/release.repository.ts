@@ -6,9 +6,8 @@ import {
 import { Artist } from '../artists/artist.entity.js';
 import { Genre } from '../genres/genres.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { Release } from './release.entity.js';
+import { Release, ReleaseType } from './release.entity.js';
 import type {
-  ReleaseType,
   ReleaseDatePrecision,
 } from './release.entity.js';
 
@@ -42,6 +41,37 @@ export class ReleaseRepository {
     return em.find(Release, {}, {
       populate: ['artists', 'genres'],
       orderBy: { name: 'asc', id: 'asc' },
+    });
+  }
+
+  async findPopularAlbums(limit: number): Promise<Array<{ release: Release; reviewCount: number }>> {
+    const em = this.getEntityManager();
+    const rows: Array<{ id: number; reviewCount: number }> = await em.getConnection().execute(
+      `select r."id" as "id", count(rv."id")::int as "reviewCount"
+       from "release" r
+       left join "review" rv
+         on rv."release_id" = r."id" and rv."deleted_at" is null
+       where r."type" = ?
+       group by r."id"
+       order by count(rv."id") desc, r."name" asc, r."id" asc
+       limit ?`,
+      [ReleaseType.ALBUM, limit],
+    );
+
+    if (rows.length === 0) return [];
+
+    const releases = await em.find(Release, {
+      id: { $in: rows.map(row => Number(row.id)) },
+    }, { populate: ['artists'] });
+    const releasesById = new Map(
+      releases.flatMap(release => release.id === undefined ? [] : [[release.id, release] as const]),
+    );
+
+    return rows.flatMap(row => {
+      const release = releasesById.get(Number(row.id));
+      return release
+        ? [{ release, reviewCount: Number(row.reviewCount) }]
+        : [];
     });
   }
 
@@ -175,6 +205,7 @@ export class ReleaseRepository {
 
     return true;
   }
+
 
   async searchByName(searchTerm: string): Promise<Release[]> {
     const em = this.getEntityManager();

@@ -9,6 +9,7 @@ import authRouter from '../modules/auth/auth.route.js';
 import spotifyRouter from '../modules/spotify/spotify.route.js';
 import reviewRouter from '../modules/reviews/review.route.js';
 import commentRouter, { reviewCommentRouter } from '../modules/comments/comment.route.js';
+import searchRoutes from '../modules/search/search.routes.js';
 const router = Router();
 
 
@@ -37,4 +38,5 @@ router.use('/tracks', trackRouter);
 router.use('/artists', artistRouter);
 router.use('/genres', genreRouter);
 router.use('/auth', authRouter);
+router.use('/search', searchRoutes)
 export default router;

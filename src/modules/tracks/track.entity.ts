@@ -11,6 +11,9 @@ import type { Rel } from '@mikro-orm/core';
 import { Artist } from '../artists/artist.entity.js';
 import { Release } from '../releases/release.entity.js';
 import { TrackArtist } from './track-artist.entity.js';
+import { TrackRepository } from './track.repository.js';
+
+@Entity({ repository: () => TrackRepository })
 
 @Entity()
 export class Track {

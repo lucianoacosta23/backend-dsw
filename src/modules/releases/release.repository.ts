@@ -175,4 +175,19 @@ export class ReleaseRepository {
 
     return true;
   }
+
+  async searchByName(searchTerm: string): Promise<Release[]> {
+    const em = this.getEntityManager();
+
+    return em.find(Release, {
+      
+      name: { $ilike: `%${searchTerm}%` }, 
+    }, {
+      populate: ['artists', 'tracks'], // Trae las relaciones si las necesitas
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
+
 }

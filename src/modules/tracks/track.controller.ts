@@ -189,9 +189,9 @@ export async function create(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  try {
+  try {  
     const data = validateBody(req.body);
-
+    
     if (
       data.name === undefined ||
       data.durationMs === undefined ||

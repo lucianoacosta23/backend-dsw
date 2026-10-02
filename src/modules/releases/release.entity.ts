@@ -13,6 +13,9 @@ import { Genre } from '../genres/genres.entity.js';
 import { Track } from '../tracks/track.entity.js';
 import { ReleaseArtist } from './release-artist.entity.js';
 import { ReleaseGenre } from './release-genre.entity.js';
+import { ReleaseRepository } from './release.repository.js';
+
+
 
 export enum ReleaseType {
   ALBUM = 'ALBUM',
@@ -27,7 +30,7 @@ export enum ReleaseDatePrecision {
   MONTH = 'MONTH',
   DAY = 'DAY',
 }
-
+@Entity({ repository: () => ReleaseRepository })
 @Entity()
 export class Release {
   @PrimaryKey({ type: 'number' })

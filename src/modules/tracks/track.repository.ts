@@ -170,4 +170,20 @@ export class TrackRepository {
 
     return true;
   }
+  async searchByName(searchTerm: string): Promise<Track[]> {
+    const em = this.getEntityManager();
+
+    return em.find(Track, {
+      name: { $ilike: `%${searchTerm}%` }, // El filtro que busca en la base de datos
+    }, {
+      populate: ['release', 'artists'], // Reutilizamos tus relaciones
+      orderBy: {
+        release: { id: 'asc' },
+        discNumber: 'asc',
+        trackNumber: 'asc',
+        id: 'asc',
+      },
+    });
+  }
+
 }

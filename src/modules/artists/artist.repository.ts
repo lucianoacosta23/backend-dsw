@@ -92,4 +92,18 @@ export class ArtistRepository {
 
     return true;
   }
+
+  async searchByName(searchTerm: string): Promise<Artist[]> {
+    const em = this.getEntityManager();
+
+    return em.find(Artist, {
+      name: { $ilike: `%${searchTerm}%` }, // Filtro de búsqueda parcial e insensible a mayúsculas
+    }, {
+      // populate: ['tracks'], // Descomenta esto si quieres que traiga también las canciones del artista
+      orderBy: {
+        name: 'asc', // Los artistas quedan ordenados alfabéticamente
+      },
+    });
+  }
+
 }

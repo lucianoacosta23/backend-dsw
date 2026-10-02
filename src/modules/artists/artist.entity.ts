@@ -1,4 +1,8 @@
 import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
+import { ArtistRepository } from './artist.repository.js';
+
+@Entity({ repository: () => ArtistRepository })
+
 
 @Entity()
 export class Artist {

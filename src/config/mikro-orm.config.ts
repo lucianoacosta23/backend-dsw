@@ -13,6 +13,8 @@ import { Review } from '../modules/reviews/review.entity.js';
 import { Comment } from '../modules/comments/comment.entity.js';
 import { Migrator } from '@mikro-orm/migrations';
 import { Follow } from '../modules/follows/follow.entity.js';
+import { ReviewLike } from '../modules/likes/like.entity.js';
+import { ReviewReport } from '../modules/reports/report.entity.js';
 
 const dbConfig = {
   host: process.env.DB_HOST ?? 'localhost',
@@ -24,7 +26,7 @@ const dbConfig = {
 
 export default defineConfig({
 
-  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow],
+  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow, ReviewLike, ReviewReport],
 
   extensions: [Migrator],
   ...dbConfig,

@@ -5,8 +5,8 @@ export class User {
   @PrimaryKey({ type: 'number' })
   id?: number;
 
-  @Property({ type: 'string' })
-  username!: string;
+  @Property({ type: 'string', unique: true })
+username!: string;
 
   @Property({ type: 'string' })
   fullName!: string;

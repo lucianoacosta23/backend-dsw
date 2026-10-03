@@ -1,9 +1,11 @@
 import type { Request, Response, NextFunction } from 'express';
-import { UserRepository } from './user.repository.js';
 import { UniqueConstraintViolationException } from '@mikro-orm/core';
-import { AppError } from '../../shared/errors/app-error.js';
+
+import { UserRepository } from './user.repository.js';
 import type { UpdateUserInput } from './user.repository.js';
 import type { User } from './user.entity.js';
+import { AppError } from '../../shared/errors/app-error.js';
+
 const userRepository = new UserRepository();
 
 export async function findAll(
@@ -22,6 +24,7 @@ export async function findAll(
     next(error);
   }
 }
+
 export async function create(
   req: Request,
   res: Response,
@@ -54,9 +57,9 @@ export async function create(
     }
 
     const data = {
-      username: username.trim(),
+      username: username.trim().toLowerCase(),
       fullName: fullName.trim(),
-      email: email.trim(),
+      email: email.trim().toLowerCase(),
       spotifyId: spotifyId.trim(),
     };
 
@@ -83,13 +86,14 @@ export async function create(
     });
   } catch (error) {
     if (error instanceof UniqueConstraintViolationException) {
-      next(new AppError('Ya existe un usuario con ese Spotify ID', 409));
+      next(new AppError('Ya existe un usuario con esos datos', 409));
       return;
     }
 
     next(error);
   }
 }
+
 export async function findById(
   req: Request,
   res: Response,
@@ -122,6 +126,7 @@ export async function findById(
     next(error);
   }
 }
+
 export async function update(
   req: Request,
   res: Response,
@@ -187,7 +192,9 @@ export async function update(
       }
 
       data[field] =
-  field === 'email' ? trimmedValue.toLowerCase() : trimmedValue;
+        field === 'email' || field === 'username'
+          ? trimmedValue.toLowerCase()
+          : trimmedValue;
     }
 
     if (
@@ -207,7 +214,7 @@ export async function update(
       message: 'Usuario actualizado',
       data: userResponse(user),
     });
-    } catch (error) {
+  } catch (error) {
     if (error instanceof UniqueConstraintViolationException) {
       next(new AppError('Ya existe un usuario con esos datos', 409));
       return;
@@ -216,6 +223,7 @@ export async function update(
     next(error);
   }
 }
+
 export async function remove(
   req: Request,
   res: Response,
@@ -244,7 +252,9 @@ export async function remove(
   } catch (error) {
     next(error);
   }
-}function userResponse(user: User) {
+}
+
+function userResponse(user: User) {
   return {
     id: user.id,
     username: user.username,
@@ -253,4 +263,44 @@ export async function remove(
     category: user.category,
     createdAt: user.createdAt,
   };
+}
+export async function findByUsername(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const rawUsername = req.query.username;
+
+    if (typeof rawUsername !== 'string') {
+      throw new AppError('Debe indicar un username para buscar', 400);
+    }
+
+    const username = rawUsername.trim().toLowerCase();
+
+    if (username.length === 0 || username.length > 255) {
+      throw new AppError(
+        'El username debe tener entre 1 y 255 caracteres',
+        400,
+      );
+    }
+
+    const user = await userRepository.findByUsername(username);
+
+    if (!user) {
+      throw new AppError('Usuario no encontrado', 404);
+    }
+
+    res.status(200).json({
+      message: 'Usuario encontrado',
+      data: {
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 }

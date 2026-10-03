@@ -185,5 +185,46 @@ export class TrackRepository {
       },
     });
   }
+async findPopularTracks(
+  limit: number,
+): Promise<Array<{ track: Track; reviewCount: number }>> {
+  const em = this.getEntityManager();
 
+  // Cuenta solo reseñas vigentes asociadas a cada pista.
+  const rows: Array<{ id: number; reviewCount: number }> =
+    await em.getConnection().execute(
+      `select t."id" as "id", count(rv."id")::int as "reviewCount"
+       from "track" t
+       left join "review" rv
+         on rv."track_id" = t."id" and rv."deleted_at" is null
+       group by t."id"
+       order by count(rv."id") desc, t."name" asc, t."id" asc
+       limit ?`,
+      [limit],
+    );
+
+  if (rows.length === 0) return [];
+
+  // Carga las pistas con sus relaciones para que el controller pueda responderlas.
+  const tracks = await em.find(
+    Track,
+    { id: { $in: rows.map(row => Number(row.id)) } },
+    { populate: ['artists', 'release'] },
+  );
+
+  const tracksById = new Map(
+    tracks.flatMap(track =>
+      track.id === undefined ? [] : [[track.id, track] as const],
+    ),
+  );
+
+  // Mantiene el orden calculado por la consulta SQL.
+  return rows.flatMap(row => {
+    const track = tracksById.get(Number(row.id));
+
+    return track
+      ? [{ track, reviewCount: Number(row.reviewCount) }]
+      : [];
+  });
+}
 }

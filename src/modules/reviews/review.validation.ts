@@ -3,7 +3,9 @@ import { AppError } from '../../shared/errors/app-error.js';
 const MAX_ID = 2147483647;
 
 export interface CreateReviewInput {
-  releaseId: number;
+  // El validador exige que se envíe exactamente uno de estos destinos.
+  releaseId?: number;
+  trackId?: number;
   text: string;
   rating: number;
 }
@@ -11,6 +13,7 @@ export interface CreateReviewInput {
 export interface ReviewListInput {
   authorId?: number;
   releaseId?: number;
+  trackId?: number;
   page: number;
   pageSize: number;
 }
@@ -68,10 +71,25 @@ export function parseReviewRating(value: unknown): number {
 }
 
 export function parseCreateReview(body: unknown): CreateReviewInput {
-  const data = objectWithFields(body, ['releaseId', 'text', 'rating']);
+  const data = objectWithFields(body, [
+    'releaseId',
+    'trackId',
+    'text',
+    'rating',
+  ]);
+
+  const hasReleaseId = Object.hasOwn(data, 'releaseId');
+  const hasTrackId = Object.hasOwn(data, 'trackId');
+
+  // La reseña debe tener un solo destino.
+  if (hasReleaseId === hasTrackId) {
+    throw new AppError('Debe indicar releaseId o trackId, pero no ambos', 400);
+  }
 
   return {
-    releaseId: positiveInteger(data.releaseId, 'releaseId'),
+    ...(hasReleaseId
+      ? { releaseId: positiveInteger(data.releaseId, 'releaseId') }
+      : { trackId: positiveInteger(data.trackId, 'trackId') }),
     text: parseReviewText(data.text),
     rating: parseReviewRating(data.rating),
   };
@@ -88,21 +106,63 @@ export function validateDeleteReviewBody(body: unknown): void {
   }
 }
 
-export function parseReviewList(query: Record<string, unknown>): ReviewListInput {
-  if (Object.keys(query).some(key => !['authorId', 'releaseId', 'page', 'pageSize'].includes(key))) {
-    throw new AppError('Solo se permiten los filtros authorId, releaseId, page y pageSize', 400);
+export function parseReviewList(
+  query: Record<string, unknown>,
+): ReviewListInput {
+  // Rechaza filtros que el endpoint no admite.
+  const allowedFilters = [
+    'authorId',
+    'releaseId',
+    'trackId',
+    'page',
+    'pageSize',
+  ];
+
+  if (Object.keys(query).some(key => !allowedFilters.includes(key))) {
+    throw new AppError(
+      'Solo se permiten los filtros authorId, releaseId, trackId, page y pageSize',
+      400,
+    );
   }
 
   const result: ReviewListInput = {
     page: query.page === undefined ? 1 : parseReviewId(query.page),
-    pageSize: query.pageSize === undefined ? 20 : positiveInteger(parseReviewId(query.pageSize), 'pageSize', 100),
+    pageSize:
+      query.pageSize === undefined
+        ? 20
+        : positiveInteger(parseReviewId(query.pageSize), 'pageSize', 100),
   };
 
-  if (query.authorId !== undefined) result.authorId = parseReviewId(query.authorId);
-  if (query.releaseId !== undefined) result.releaseId = parseReviewId(query.releaseId);
+  if (query.authorId !== undefined) {
+    result.authorId = parseReviewId(query.authorId);
+  }
 
-  if (result.authorId === undefined && result.releaseId === undefined) {
-    throw new AppError('Debe filtrar por authorId o releaseId', 400);
+  if (query.releaseId !== undefined) {
+    result.releaseId = parseReviewId(query.releaseId);
+  }
+
+  if (query.trackId !== undefined) {
+    result.trackId = parseReviewId(query.trackId);
+  }
+
+  // Una reseña no puede estar filtrada por lanzamiento y pista a la vez.
+  if (result.releaseId !== undefined && result.trackId !== undefined) {
+    throw new AppError(
+      'No se puede filtrar por releaseId y trackId al mismo tiempo',
+      400,
+    );
+  }
+
+  // Se permite filtrar por autor, por lanzamiento o por pista.
+  if (
+    result.authorId === undefined &&
+    result.releaseId === undefined &&
+    result.trackId === undefined
+  ) {
+    throw new AppError(
+      'Debe filtrar por authorId, releaseId o trackId',
+      400,
+    );
   }
 
   if ((result.page - 1) * result.pageSize > MAX_ID) {

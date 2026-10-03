@@ -26,7 +26,9 @@ function reviewResponse(review: Review) {
   return {
     id: review.id,
     author: { id: review.author.id, username: review.author.username },
-    releaseId: review.release.id,
+    // Solo uno de estos identificadores tendrá valor.
+releaseId: review.release?.id ?? null,
+trackId: review.track?.id ?? null,
     text: review.text,
     rating: review.rating,
     createdAt: review.createdAt,
@@ -70,7 +72,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
     res.status(201).json({ message: 'Reseña creada', data: reviewResponse(review) });
   } catch (error) {
     if (error instanceof ForeignKeyConstraintViolationException) {
-      next(new AppError('El autor o lanzamiento ya no existe', 409));
+      next(new AppError('El autor, lanzamiento o pista ya no existe.', 409));
       return;
     }
     next(error);

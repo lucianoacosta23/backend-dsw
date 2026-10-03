@@ -361,6 +361,137 @@
           "enumItems": [],
           "mappedType": "integer"
         },
+        "follower_id": {
+          "name": "follower_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "followed_id": {
+          "name": "followed_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "follow",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "follower_id",
+            "followed_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "follow_follower_id_followed_id_unique",
+          "unique": true,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "follow_pkey",
+          "unique": true,
+          "primary": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "follow_no_self_follow",
+          "columnName": "followed_id",
+          "definition": "CHECK ((follower_id <> followed_id))",
+          "expression": "follower_id <> followed_id"
+        }
+      ],
+      "foreignKeys": {
+        "follow_followed_id_foreign": {
+          "columnNames": [
+            "followed_id"
+          ],
+          "constraintName": "follow_followed_id_foreign",
+          "localTableName": "public.follow",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "follow_follower_id_foreign": {
+          "columnNames": [
+            "follower_id"
+          ],
+          "constraintName": "follow_follower_id_foreign",
+          "localTableName": "public.follow",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "name": {
           "name": "name",
           "type": "varchar(255)",
@@ -781,7 +912,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": null,
           "precision": 32,
@@ -870,6 +1001,22 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "track_id": {
+          "name": "track_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
         }
       },
       "name": "review",
@@ -927,6 +1074,12 @@
       ],
       "checks": [
         {
+          "name": "review_exactly_one_target_check",
+          "columnName": "release_id",
+          "definition": "CHECK (((release_id IS NOT NULL) <> (track_id IS NOT NULL)))",
+          "expression": "(release_id IS NOT NULL) <> (track_id IS NOT NULL)"
+        },
+        {
           "name": "review_rating_check",
           "columnName": "rating",
           "definition": "CHECK ((rating = ANY (ARRAY[0.5, (1)::numeric, 1.5, (2)::numeric, 2.5, (3)::numeric, 3.5, (4)::numeric, 4.5, (5)::numeric])))",
@@ -965,6 +1118,313 @@
           ],
           "updateRule": "cascade",
           "deleteRule": "no action"
+        },
+        "review_track_id_foreign": {
+          "columnNames": [
+            "track_id"
+          ],
+          "constraintName": "review_track_id_foreign",
+          "localTableName": "public.review",
+          "referencedTableName": "public.track",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "review_id": {
+          "name": "review_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "review_like",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "review_like_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "review_id",
+            "user_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "review_like_review_id_user_id_unique",
+          "unique": true,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "review_like_review_id_foreign": {
+          "columnNames": [
+            "review_id"
+          ],
+          "constraintName": "review_like_review_id_foreign",
+          "localTableName": "public.review_like",
+          "referencedTableName": "public.review",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "review_like_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "review_like_user_id_foreign",
+          "localTableName": "public.review_like",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "reporter_id": {
+          "name": "reporter_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "review_id": {
+          "name": "review_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "SPAM",
+            "HARASSMENT",
+            "HATE_SPEECH",
+            "INAPPROPRIATE_CONTENT",
+            "SPOILER",
+            "OTHER"
+          ],
+          "mappedType": "enum"
+        },
+        "details": {
+          "name": "details",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "review_report",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "review_report_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "review_id",
+            "reporter_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "review_report_review_id_reporter_id_unique",
+          "unique": true,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "review_report_details_length_check",
+          "columnName": "details",
+          "definition": "CHECK (((details IS NULL) OR ((char_length(details) >= 1) AND (char_length(details) <= 500))))",
+          "expression": "(details IS NULL) OR ((char_length(details) >= 1) AND (char_length(details) <= 500))"
+        }
+      ],
+      "foreignKeys": {
+        "review_report_reporter_id_foreign": {
+          "columnNames": [
+            "reporter_id"
+          ],
+          "constraintName": "review_report_reporter_id_foreign",
+          "localTableName": "public.review_report",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "review_report_review_id_foreign": {
+          "columnNames": [
+            "review_id"
+          ],
+          "constraintName": "review_report_review_id_foreign",
+          "localTableName": "public.review_report",
+          "referencedTableName": "public.review",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
         }
       },
       "nativeEnums": {},

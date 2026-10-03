@@ -4,6 +4,7 @@ import type { FilterQuery } from '@mikro-orm/core';
 import { AppError } from '../../shared/errors/app-error.js';
 import { User } from '../users/user.entity.js';
 import { Release } from '../releases/release.entity.js';
+import { Track } from '../tracks/track.entity.js';
 import { Review } from './review.entity.js';
 import { assertCanEditReview, assertCanManageReview } from './review.rules.js';
 import type { ReviewActor } from './review.rules.js';
@@ -22,7 +23,9 @@ export class ReviewRepository {
     const where: FilterQuery<Review> = { deletedAt: null };
     if (input.authorId !== undefined) where.author = input.authorId;
     if (input.releaseId !== undefined) where.release = input.releaseId;
-
+    if (input.trackId !== undefined) {
+  where.track = input.trackId;
+}
     return this.getEntityManager().findAndCount(Review, where, {
       populate: ['author'],
       orderBy: { createdAt: 'desc', id: 'desc' },
@@ -37,22 +40,43 @@ export class ReviewRepository {
     });
   }
 
-  async create(data: CreateReviewInput, authorId: number): Promise<Review> {
-    const em = this.getEntityManager();
+async create(data: CreateReviewInput, authorId: number): Promise<Review> {
+  const em = this.getEntityManager();
+  const review = new Review();
+
+  review.author = em.getReference(User, authorId);
+
+  // La reseña se vincula con un lanzamiento o con una pista.
+  if (data.releaseId !== undefined) {
     const release = await em.findOne(Release, { id: data.releaseId });
-    if (!release) throw new AppError('Lanzamiento no encontrado', 404);
 
-    const review = new Review();
-    review.author = em.getReference(User, authorId);
+    if (!release) {
+      throw new AppError('Lanzamiento no encontrado', 404);
+    }
+
     review.release = release;
-    review.text = data.text;
-    review.rating = data.rating;
-    review.createdAt = this.now();
+  } else if (data.trackId !== undefined) {
+    const track = await em.findOne(Track, { id: data.trackId });
 
-    await em.persistAndFlush(review);
-    await em.populate(review, ['author']);
-    return review;
+    if (!track) {
+      throw new AppError('Pista no encontrada', 404);
+    }
+
+    review.track = track;
+  } else {
+    // Protege el repository aunque se lo llame sin pasar por la validación.
+    throw new AppError('Debe indicar releaseId o trackId', 400);
   }
+
+  review.text = data.text;
+  review.rating = data.rating;
+  review.createdAt = this.now();
+
+  await em.persistAndFlush(review);
+  await em.populate(review, ['author']);
+
+  return review;
+}
 
   async updateText(id: number, text: string, actor: ReviewActor): Promise<Review> {
     return this.getEntityManager().transactional(async tx => {

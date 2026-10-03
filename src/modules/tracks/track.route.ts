@@ -10,11 +10,15 @@ import {
   create,
   update,
   remove,
+  findPopularTracks,
 } from './track.controller.js';
 
 const trackRouter = Router();
 
 trackRouter.get('/', findAll);
+
+trackRouter.get('/popular', findPopularTracks);
+
 trackRouter.get('/:id', findById);
 
 trackRouter.post(

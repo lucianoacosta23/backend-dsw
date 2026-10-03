@@ -162,6 +162,41 @@ export async function findAll(
   }
 }
 
+export async function findPopularTracks(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    // Si no se envía limit, devuelve las primeras 10 pistas.
+    let limit = 10;
+
+    if (req.query.limit !== undefined) {
+      if (
+        typeof req.query.limit !== 'string' ||
+        !/^[1-9]\d*$/.test(req.query.limit)
+      ) {
+        throw new AppError('limit debe ser un entero positivo', 400);
+      }
+
+      limit = validateInteger(Number(req.query.limit), 'limit');
+
+      if (limit > 50) {
+        throw new AppError('limit no puede ser mayor a 50', 400);
+      }
+    }
+
+    const tracks = await trackRepository.findPopularTracks(limit);
+
+    res.status(200).json({
+      message: 'Pistas más populares',
+      data: tracks,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function findById(
   req: Request,
   res: Response,

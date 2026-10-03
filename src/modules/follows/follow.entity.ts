@@ -1,4 +1,4 @@
-import {
+import { Check,
   Entity,
   ManyToOne,
   PrimaryKey,
@@ -9,6 +9,11 @@ import {
 import { User } from '../users/user.entity.js';
 
 @Entity()
+@Entity()
+@Check({
+  name: 'follow_no_self_follow',
+  expression: 'follower_id <> followed_id',
+})
 @Unique({ properties: ['follower', 'followed'] })
 export class Follow {
   @PrimaryKey({ type: 'number' })

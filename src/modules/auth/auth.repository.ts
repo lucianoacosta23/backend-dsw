@@ -31,7 +31,8 @@ async function createLocal(data: CreateLocalUserData): Promise<User> {
   const em = getEntityManager();
 
   const user = new User();
-  user.username = data.username;
+
+user.username = data.username.trim().toLowerCase();
   user.fullName = data.fullName;
   user.email = data.email;
   user.passwordHash = data.passwordHash;
@@ -61,8 +62,9 @@ async function createSpotify(
   const name = data.displayName ?? fallbackName;
 
   const user = new User();
-  user.username = name;
-  user.fullName = name;
+  
+  user.username = fallbackName.toLowerCase();
+user.fullName = name;
   user.email = null;
   user.passwordHash = null;
   user.spotifyId = data.spotifyId;

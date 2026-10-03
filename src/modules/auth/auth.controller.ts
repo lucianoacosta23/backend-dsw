@@ -53,7 +53,7 @@ function parseRegisterBody(body: unknown) {
     throw new AppError('El registro contiene campos no permitidos', 400);
   }
 
-  const username = requiredText(data.username, 'username');
+  const username = requiredText(data.username, 'username').toLowerCase();
   const fullName = requiredText(data.fullName, 'fullName');
   const email = requiredText(data.email, 'email').toLowerCase();
 

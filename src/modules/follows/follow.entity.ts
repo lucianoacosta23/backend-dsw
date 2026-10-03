@@ -8,7 +8,7 @@ import { Check,
 
 import { User } from '../users/user.entity.js';
 
-@Entity()
+
 @Entity()
 @Check({
   name: 'follow_no_self_follow',

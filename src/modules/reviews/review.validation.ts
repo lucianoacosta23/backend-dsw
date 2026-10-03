@@ -6,7 +6,7 @@ export interface CreateReviewInput {
   // El validador exige que se envíe exactamente uno de estos destinos.
   releaseId?: number;
   trackId?: number;
-  text: string;
+  text: string | null;
   rating: number;
 }
 
@@ -60,12 +60,47 @@ export function parseReviewText(value: unknown): string {
 
   return text;
 }
+export function parseOptionalReviewText(value: unknown): string | null {
+  // Un texto omitido, null o vacío significa una reseña solo con puntuación.
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    throw new AppError('text debe ser un texto', 400);
+  }
+
+  const text = value.trim();
+
+  if (text.length === 0) {
+    return null;
+  }
+
+  const length = Array.from(text).length;
+
+  if (length > 2000 || text.includes('\0')) {
+    throw new AppError(
+      'text no debe superar los 2000 caracteres ni contener NUL',
+      400,
+    );
+  }
+
+  return text;
+}
 
 export function parseReviewRating(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)
-    || value < 1 || value > 5 || !Number.isInteger(value * 2)) {
-    throw new AppError('rating debe ser un número de 1 a 5 en pasos de 0.5', 400);
-  }
+  if (
+  typeof value !== 'number' ||
+  !Number.isFinite(value) ||
+  value < 0.5 ||
+  value > 5 ||
+  !Number.isInteger(value * 2)
+) {
+  throw new AppError(
+    'rating debe ser un número de 0.5 a 5 en pasos de 0.5',
+    400,
+  );
+}
 
   return value;
 }
@@ -90,7 +125,7 @@ export function parseCreateReview(body: unknown): CreateReviewInput {
     ...(hasReleaseId
       ? { releaseId: positiveInteger(data.releaseId, 'releaseId') }
       : { trackId: positiveInteger(data.trackId, 'trackId') }),
-    text: parseReviewText(data.text),
+    text: parseOptionalReviewText(data.text),
     rating: parseReviewRating(data.rating),
   };
 }

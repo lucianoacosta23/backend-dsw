@@ -4,5 +4,6 @@ declare module 'express-session' {
   interface SessionData {
     userId?: number;
     spotifyOauthState?: string;
+    spotifyReturnUrl?: string;
   }
 }

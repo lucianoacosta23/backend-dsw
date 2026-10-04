@@ -43,13 +43,17 @@ export async function findAll(
 ): Promise<void> {
   try {
     const input = parseReviewList(req.query);
-    const { items, total } = await reviewRepository.findAll(input);
+    const { items, total } = await reviewRepository.findAll(
+      input,
+      req.session.userId,
+    );
 
     res.status(200).json({
       message: 'Listado de reseñas',
-      data: items.map(({ review, likeCount }) =>
-        reviewResponse(review, likeCount),
-      ),
+      data: items.map(({ review, likeCount, likedByMe }) => ({
+        ...reviewResponse(review, likeCount),
+        likedByMe,
+      })),
       pagination: {
         page: input.page,
         pageSize: input.pageSize,
@@ -63,41 +67,78 @@ export async function findAll(
   }
 }
 
-export async function findById(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function findById(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
-    const review = await reviewRepository.findById(parseReviewId(req.params.id));
+    const review = await reviewRepository.findById(
+      parseReviewId(req.params.id),
+    );
+
     if (!review) throw new AppError('Reseña no encontrada', 404);
-    res.status(200).json({ message: 'Reseña encontrada', data: reviewResponse(review) });
+
+    res.status(200).json({
+      message: 'Reseña encontrada',
+      data: reviewResponse(review),
+    });
   } catch (error) {
     next(error);
   }
 }
 
-export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function create(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
-    const review = await reviewRepository.create(parseCreateReview(req.body), actor(res).id);
-    res.status(201).json({ message: 'Reseña creada', data: reviewResponse(review) });
+    const review = await reviewRepository.create(
+      parseCreateReview(req.body),
+      actor(res).id,
+    );
+
+    res.status(201).json({
+      message: 'Reseña creada',
+      data: reviewResponse(review),
+    });
   } catch (error) {
     if (error instanceof ForeignKeyConstraintViolationException) {
       next(new AppError('El autor, lanzamiento o pista ya no existe.', 409));
       return;
     }
+
     next(error);
   }
 }
 
-export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function update(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const review = await reviewRepository.updateText(
-      parseReviewId(req.params.id), parseEditReview(req.body), actor(res),
+      parseReviewId(req.params.id),
+      parseEditReview(req.body),
+      actor(res),
     );
-    res.status(200).json({ message: 'Reseña actualizada', data: reviewResponse(review) });
+
+    res.status(200).json({
+      message: 'Reseña actualizada',
+      data: reviewResponse(review),
+    });
   } catch (error) {
     next(error);
   }
 }
 
-export async function remove(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function remove(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const id = parseReviewId(req.params.id);
     validateDeleteReviewBody(req.body);

@@ -1,9 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { UniqueConstraintViolationException } from '@mikro-orm/core';
-import {
-  randomBytes,
-  timingSafeEqual,
-} from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { SpotifyAuthClient } from './spotify-auth.client.js';
 import * as argon2 from 'argon2';
@@ -70,12 +67,12 @@ function parseRegisterBody(body: unknown) {
   // La contraseña se conserva exactamente como fue escrita.
   const passwordLength = Array.from(password).length;
 
-if (passwordLength < 8 || passwordLength > 128) {
-  throw new AppError(
-    'La contraseña debe tener entre 8 y 128 caracteres',
-    400,
-  );
-}
+  if (passwordLength < 8 || passwordLength > 128) {
+    throw new AppError(
+      'La contraseña debe tener entre 8 y 128 caracteres',
+      400,
+    );
+  }
 
   return { username, fullName, email, password };
 }
@@ -129,6 +126,7 @@ export async function register(
     next(error);
   }
 }
+
 function publicUser(user: User) {
   return {
     id: user.id,
@@ -315,6 +313,7 @@ export async function logout(
     next(error);
   }
 }
+
 function createSpotifyAuthClient(): SpotifyAuthClient {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
@@ -339,6 +338,32 @@ function queryString(value: unknown): string | null {
     : null;
 }
 
+// Solo permite volver a rutas internas de la aplicación.
+function safeLocalReturnUrl(value: unknown): string {
+  const candidate = queryString(value);
+
+  if (
+    !candidate ||
+    !candidate.startsWith('/') ||
+    candidate.startsWith('//') ||
+    candidate.includes('\\')
+  ) {
+    return '/';
+  }
+
+  try {
+    const parsed = new URL(candidate, 'http://jukeboxd.local');
+
+    if (parsed.origin !== 'http://jukeboxd.local') {
+      return '/';
+    }
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return '/';
+  }
+}
+
 function validState(
   received: string,
   expected: string,
@@ -361,6 +386,10 @@ export async function spotifyLogin(
     const state = randomBytes(32).toString('hex');
 
     req.session.spotifyOauthState = state;
+    req.session.spotifyReturnUrl = safeLocalReturnUrl(
+      req.query.returnUrl,
+    );
+
     await saveSession(req);
 
     const client = createSpotifyAuthClient();
@@ -381,8 +410,10 @@ export async function spotifyCallback(
 
     const receivedState = queryString(req.query.state);
     const expectedState = req.session.spotifyOauthState;
+    const returnUrl = req.session.spotifyReturnUrl ?? '/';
 
     delete req.session.spotifyOauthState;
+    delete req.session.spotifyReturnUrl;
     await saveSession(req);
 
     if (
@@ -435,15 +466,18 @@ export async function spotifyCallback(
       throw new Error('El usuario no tiene un ID persistido');
     }
 
+    // Se inicia una sesión nueva después de autenticar al usuario.
     await regenerateSession(req);
 
     req.session.userId = user.id;
+
     await saveSession(req);
 
-    res.status(200).json({
-      message: 'Sesión iniciada con Spotify correctamente',
-      data: publicUser(user),
-    });
+    const frontendUrl = (
+      process.env.FRONTEND_URL ?? 'http://127.0.0.1:4200'
+    ).replace(/\/+$/, '');
+
+    res.redirect(303, `${frontendUrl}${returnUrl}`);
   } catch (error) {
     if (error instanceof UniqueConstraintViolationException) {
       next(

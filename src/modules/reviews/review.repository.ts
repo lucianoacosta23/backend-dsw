@@ -19,20 +19,91 @@ export class ReviewRepository {
     return em;
   }
 
-  async findAll(input: ReviewListInput): Promise<[Review[], number]> {
-    const where: FilterQuery<Review> = { deletedAt: null };
-    if (input.authorId !== undefined) where.author = input.authorId;
-    if (input.releaseId !== undefined) where.release = input.releaseId;
-    if (input.trackId !== undefined) {
-  where.track = input.trackId;
-}
-    return this.getEntityManager().findAndCount(Review, where, {
-      populate: ['author'],
-      orderBy: { createdAt: 'desc', id: 'desc' },
-      limit: input.pageSize,
-      offset: (input.page - 1) * input.pageSize,
-    });
+async findAll(
+  input: ReviewListInput,
+): Promise<{
+  items: Array<{ review: Review; likeCount: number }>;
+  total: number;
+}> {
+  const em = this.getEntityManager();
+
+  const where: FilterQuery<Review> = { deletedAt: null };
+  const conditions = ['r.deleted_at IS NULL'];
+  const params: number[] = [];
+
+  if (input.authorId !== undefined) {
+    where.author = input.authorId;
+    conditions.push('r.author_id = ?');
+    params.push(input.authorId);
   }
+
+  if (input.releaseId !== undefined) {
+    where.release = input.releaseId;
+    conditions.push('r.release_id = ?');
+    params.push(input.releaseId);
+  }
+
+  if (input.trackId !== undefined) {
+    where.track = input.trackId;
+    conditions.push('r.track_id = ?');
+    params.push(input.trackId);
+  }
+
+  const total = await em.count(Review, where);
+  const orderBy =
+    input.sort === 'popular'
+      ? 'like_count DESC, r.created_at DESC, r.id DESC'
+      : 'r.created_at DESC, r.id DESC';
+
+  const offset = (input.page - 1) * input.pageSize;
+
+  // Cuenta los likes en la base antes de aplicar el límite de página.
+  const rows = (await em.getConnection().execute(
+    `
+      SELECT
+        r.id,
+        (
+          SELECT COUNT(*)::int
+          FROM review_like AS l
+          WHERE l.review_id = r.id
+        ) AS like_count
+      FROM "review" AS r
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    `,
+    [...params, input.pageSize, offset],
+  )) as Array<{ id: number; like_count: number }>;
+
+  if (rows.length === 0) {
+    return { items: [], total };
+  }
+
+  // Recupera las entidades con el autor para armar la respuesta de la API.
+  const reviews = await em.find(
+    Review,
+    {
+      id: { $in: rows.map(row => row.id) },
+      deletedAt: null,
+    },
+    { populate: ['author'] },
+  );
+
+  const reviewsById = new Map(
+    reviews.map(review => [review.id!, review]),
+  );
+
+  // La consulta de entidades no garantiza el orden del ranking SQL.
+  const items = rows.flatMap(row => {
+    const review = reviewsById.get(row.id);
+
+    return review
+      ? [{ review, likeCount: Number(row.like_count) }]
+      : [];
+  });
+
+  return { items, total };
+}
 
   async findById(id: number): Promise<Review | null> {
     return this.getEntityManager().findOne(Review, { id, deletedAt: null }, {

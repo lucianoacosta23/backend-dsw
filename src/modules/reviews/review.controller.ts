@@ -22,34 +22,41 @@ function actor(res: Response): ReviewActor {
   return { id: user.id, category: user.category };
 }
 
-function reviewResponse(review: Review) {
+function reviewResponse(review: Review, likeCount?: number) {
   return {
     id: review.id,
     author: { id: review.author.id, username: review.author.username },
-    // Solo uno de estos identificadores tendrá valor.
-releaseId: review.release?.id ?? null,
-trackId: review.track?.id ?? null,
+    releaseId: review.release?.id ?? null,
+    trackId: review.track?.id ?? null,
     text: review.text,
     rating: review.rating,
+    ...(likeCount === undefined ? {} : { likeCount }),
     createdAt: review.createdAt,
     editedAt: review.editedAt,
   };
 }
 
-export async function findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function findAll(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const input = parseReviewList(req.query);
-    const [reviews, total] = await reviewRepository.findAll(input);
+    const { items, total } = await reviewRepository.findAll(input);
+
     res.status(200).json({
       message: 'Listado de reseñas',
-      data: reviews.map(reviewResponse),
+      data: items.map(({ review, likeCount }) =>
+        reviewResponse(review, likeCount),
+      ),
       pagination: {
         page: input.page,
         pageSize: input.pageSize,
         total,
         totalPages: Math.ceil(total / input.pageSize),
       },
-      sort: 'newest',
+      sort: input.sort,
     });
   } catch (error) {
     next(error);

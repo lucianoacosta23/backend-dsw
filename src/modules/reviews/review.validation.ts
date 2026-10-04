@@ -1,7 +1,7 @@
 import { AppError } from '../../shared/errors/app-error.js';
 
 const MAX_ID = 2147483647;
-
+export type ReviewSort = 'newest' | 'popular';
 export interface CreateReviewInput {
   // El validador exige que se envíe exactamente uno de estos destinos.
   releaseId?: number;
@@ -16,6 +16,7 @@ export interface ReviewListInput {
   trackId?: number;
   page: number;
   pageSize: number;
+  sort: ReviewSort;
 }
 
 export function parseReviewId(value: unknown): number {
@@ -24,6 +25,14 @@ export function parseReviewId(value: unknown): number {
   }
 
   return positiveInteger(Number(value), 'ID');
+}
+
+function parseReviewSort(value: unknown): ReviewSort {
+  if (value === 'newest' || value === 'popular') {
+    return value;
+  }
+
+  throw new AppError('sort debe ser newest o popular', 400);
 }
 
 function positiveInteger(value: unknown, field: string, max = MAX_ID): number {
@@ -151,58 +160,59 @@ export function parseReviewList(
     'trackId',
     'page',
     'pageSize',
+    'sort',
   ];
 
   if (Object.keys(query).some(key => !allowedFilters.includes(key))) {
     throw new AppError(
-      'Solo se permiten los filtros authorId, releaseId, trackId, page y pageSize',
+      'Solo se permiten los filtros authorId, releaseId, trackId, page, pageSize y sort',
       400,
     );
   }
 
-  const result: ReviewListInput = {
-    page: query.page === undefined ? 1 : parseReviewId(query.page),
-    pageSize:
-      query.pageSize === undefined
-        ? 20
-        : positiveInteger(parseReviewId(query.pageSize), 'pageSize', 100),
-  };
+const result: ReviewListInput = {
+  page: query.page === undefined ? 1 : parseReviewId(query.page),
+  pageSize:
+    query.pageSize === undefined
+      ? 20
+      : positiveInteger(parseReviewId(query.pageSize), 'pageSize', 100),
+  sort: query.sort === undefined ? 'newest' : parseReviewSort(query.sort),
+};
 
-  if (query.authorId !== undefined) {
-    result.authorId = parseReviewId(query.authorId);
-  }
-
-  if (query.releaseId !== undefined) {
-    result.releaseId = parseReviewId(query.releaseId);
-  }
-
-  if (query.trackId !== undefined) {
-    result.trackId = parseReviewId(query.trackId);
-  }
-
-  // Una reseña no puede estar filtrada por lanzamiento y pista a la vez.
-  if (result.releaseId !== undefined && result.trackId !== undefined) {
-    throw new AppError(
-      'No se puede filtrar por releaseId y trackId al mismo tiempo',
-      400,
-    );
-  }
-
-  // Se permite filtrar por autor, por lanzamiento o por pista.
-  if (
-    result.authorId === undefined &&
-    result.releaseId === undefined &&
-    result.trackId === undefined
-  ) {
-    throw new AppError(
-      'Debe filtrar por authorId, releaseId o trackId',
-      400,
-    );
-  }
-
-  if ((result.page - 1) * result.pageSize > MAX_ID) {
-    throw new AppError('La página está fuera del rango permitido', 400);
-  }
-
-  return result;
+if (query.authorId !== undefined) {
+  result.authorId = parseReviewId(query.authorId);
 }
+
+if (query.releaseId !== undefined) {
+  result.releaseId = parseReviewId(query.releaseId);
+}
+
+if (query.trackId !== undefined) {
+  result.trackId = parseReviewId(query.trackId);
+}
+
+// Una reseña no puede estar filtrada por lanzamiento y pista a la vez.
+if (result.releaseId !== undefined && result.trackId !== undefined) {
+  throw new AppError(
+    'No se puede filtrar por releaseId y trackId al mismo tiempo',
+    400,
+  );
+}
+
+// Se permite filtrar por autor, por lanzamiento o por pista.
+if (
+  result.authorId === undefined &&
+  result.releaseId === undefined &&
+  result.trackId === undefined
+) {
+  throw new AppError(
+    'Debe filtrar por authorId, releaseId o trackId',
+    400,
+  );
+}
+
+if ((result.page - 1) * result.pageSize > MAX_ID) {
+  throw new AppError('La página está fuera del rango permitido', 400);
+}
+
+return result; }

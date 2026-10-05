@@ -40,7 +40,7 @@ export class PlaylistRepository {
 
     //verificamos que el nombre de la playlist no este en uso 
 
-    const existing = await em.findOne(Playlist, { name: data.name });
+    const existing = await em.findOne(Playlist, { name: input.name });
     if (existing) {
       throw new Error('Ya existe una playlist con este nombre');
     }
@@ -156,4 +156,14 @@ export class PlaylistRepository {
   return playlist;
   }
 
+
+  //funcion para buscar una play list por nombre, esta la usa el buscador
+  async searchByName(name: string): Promise<Playlist[]> {
+    const em = RequestContext.getEntityManager();
+    if (!em) throw new Error('No se pudo obtener el EntityManager');
+
+    return await em.find(Playlist, {
+      name: { $ilike: `%${name}%` }
+    });
+  }
 }

@@ -12,6 +12,7 @@ import commentRouter, { reviewCommentRouter } from '../modules/comments/comment.
 import reviewLikeRouter from '../modules/likes/like.route.js';
 import reviewReportRouter from '../modules/reports/report.route.js';
 import { playlistRouter } from '../modules/playlist/playlist.route.js';
+import searchRouter from '../modules/search/search.routes.js';
 
 
 const router = Router();
@@ -45,4 +46,5 @@ router.use('/artists', artistRouter);
 router.use('/genres', genreRouter);
 router.use('/auth', authRouter);
 router.use('/playlist', playlistRouter)
+router.use('/search', searchRouter);
 export default router;

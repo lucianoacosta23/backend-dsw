@@ -170,6 +170,8 @@ export class TrackRepository {
 
     return true;
   }
+
+  //Esta funcion busca las canciones cuyo nombre sea igual o similar al que traemos en parametro
   async searchByName(searchTerm: string): Promise<Track[]> {
     const em = this.getEntityManager();
 

@@ -23,9 +23,9 @@ trackRouter.get('/:id', findById);
 
 trackRouter.post(
   '/',
-  //requireAuth,
-  //requireAdmin,
-  //requireMutationHeader,
+  requireAuth,
+  requireAdmin,
+  requireMutationHeader,
   create,
 );
 

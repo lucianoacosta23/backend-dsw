@@ -12,6 +12,8 @@ import { Artist } from '../artists/artist.entity.js';
 import { Release } from '../releases/release.entity.js';
 import { TrackArtist } from './track-artist.entity.js';
 import { TrackRepository } from './track.repository.js';
+import { Playlist } from '../playlist/playlist.entity.js';
+
 
 @Entity({ repository: () => TrackRepository })
 
@@ -41,9 +43,13 @@ export class Track {
   @ManyToOne(() => Release, { deleteRule: 'restrict' })
   release!: Rel<Release>;
 
-@ManyToMany({
+  @ManyToMany({
   entity: () => Artist,
   pivotEntity: () => TrackArtist,
 })
 artists = new Collection<Artist>(this);
+
+@ManyToMany(() => Playlist, playlist => playlist.tracks)
+playlists = new Collection<Playlist>(this);
+
 }

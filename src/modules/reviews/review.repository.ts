@@ -124,6 +124,87 @@ export class ReviewRepository {
     return { items, total };
   }
 
+    // Calcula las estadísticas de todas las reseñas activas del destino.
+  async getRatingStats(
+    targetType: 'release' | 'track',
+    targetId: number,
+  ): Promise<{
+    averageRating: number | null;
+    totalRatings: number;
+    distribution: Array<{ rating: number; count: number }>;
+  }> {
+    const em = this.getEntityManager();
+
+    // Comprueba que el destino exista, aunque todavía no tenga reseñas.
+    if (targetType === 'release') {
+      const release = await em.findOne(Release, { id: targetId });
+
+      if (!release) {
+        throw new AppError('Lanzamiento no encontrado', 404);
+      }
+    } else {
+      const track = await em.findOne(Track, { id: targetId });
+
+      if (!track) {
+        throw new AppError('Pista no encontrada', 404);
+      }
+    }
+
+    // La columna sale de estas dos opciones internas.
+    // El ID se envía como parámetro de la consulta.
+    const column =
+      targetType === 'release' ? 'release_id' : 'track_id';
+
+    const rows = (await em.getConnection().execute(
+      `
+        SELECT rating, COUNT(*)::int AS count
+        FROM "review"
+        WHERE ${column} = ?
+          AND deleted_at IS NULL
+        GROUP BY rating
+        ORDER BY rating ASC
+      `,
+      [targetId],
+    )) as Array<{
+      rating: number | string;
+      count: number | string;
+    }>;
+
+    const counts = new Map(
+      rows.map(row => [Number(row.rating), Number(row.count)]),
+    );
+
+    // Devuelve las diez barras, incluso las que tienen cero puntuaciones.
+    const distribution = Array.from({ length: 10 }, (_, index) => {
+      const rating = (index + 1) / 2;
+
+      return {
+        rating,
+        count: counts.get(rating) ?? 0,
+      };
+    });
+
+    const totalRatings = distribution.reduce(
+      (total, item) => total + item.count,
+      0,
+    );
+
+    const ratingSum = distribution.reduce(
+      (total, item) => total + item.rating * item.count,
+      0,
+    );
+
+    return {
+      // Sin puntuaciones no hay promedio: devolvemos null.
+      averageRating:
+        totalRatings === 0
+          ? null
+          : Number((ratingSum / totalRatings).toFixed(2)),
+      totalRatings,
+      distribution,
+    };
+  }
+
   async findById(id: number): Promise<Review | null> {
     return this.getEntityManager().findOne(
       Review,

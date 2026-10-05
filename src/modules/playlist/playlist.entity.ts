@@ -1,7 +1,7 @@
 import { Entity, PrimaryKey, Property, Collection, ManyToMany, ManyToOne } from '@mikro-orm/core';
 
-import { Track } from '../tracks/track.entity.ts';
-import { User } from '../users/user.entity.ts'
+import { Track } from '../tracks/track.entity.js';
+import { User } from '../users/user.entity.js'
 
 
 @Entity()

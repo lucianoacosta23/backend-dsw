@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../shared/errors/app-error.js';
 import { PlaylistRepository, type CreatePlaylistInput } from './playlist.repository.js';
+import type { User } from '../users/user.entity.js';
 
 const playlistRepository = new PlaylistRepository();
 
@@ -27,30 +28,59 @@ export async function create(
   next: NextFunction,
 ): Promise<void> {
   try {
-    // Obtenemos el userId (priorizando req.user del token o permitiendo body para pruebas)
-    const rawUserId = req.user?.id ?? req.body.userId;
+    // El propietario se obtiene de la sesión autenticada.
+    const user = res.locals.authUser as User | undefined;
+
+    if (user?.id === undefined) {
+      throw new AppError('Debe iniciar sesión', 401);
+    }
+
+    if (
+      typeof req.body !== 'object' ||
+      req.body === null ||
+      Array.isArray(req.body)
+    ) {
+      throw new AppError('El cuerpo debe ser un objeto JSON', 400);
+    }
+
     const { name, trackIds } = req.body;
 
-    if (rawUserId === undefined || rawUserId === null) {
-      throw new AppError('El usuario es obligatorio para crear una playlist', 400);
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new AppError(
+        'El nombre de la playlist es obligatorio y debe ser un texto válido',
+        400,
+      );
     }
 
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-      throw new AppError('El nombre de la playlist es obligatorio y debe ser un texto válido', 400);
-    }
+    let validatedTrackIds: number[] | undefined;
 
-    let validatedTrackIds: number[] | undefined = undefined;
     if (trackIds !== undefined) {
-      if (!Array.isArray(trackIds)) {
-        throw new AppError('trackIds debe ser un array de enteros', 400);
+      if (
+        !Array.isArray(trackIds) ||
+        !trackIds.every(
+          id =>
+            typeof id === 'number' &&
+            Number.isSafeInteger(id) &&
+            id > 0 &&
+            id <= 2147483647,
+        )
+      ) {
+        throw new AppError(
+          'trackIds debe ser un array de enteros positivos',
+          400,
+        );
       }
-      validatedTrackIds = trackIds.map((id) => Number(id));
+
+      validatedTrackIds = trackIds;
     }
 
     const input: CreatePlaylistInput = {
       name: name.trim(),
-      userId: Number(rawUserId),
-      trackIds: validatedTrackIds,
+      userId: user.id,
+      // Agrega la propiedad solamente cuando se enviaron pistas.
+      ...(validatedTrackIds === undefined
+        ? {}
+        : { trackIds: validatedTrackIds }),
     };
 
     const playlist = await playlistRepository.create(input);
@@ -62,7 +92,7 @@ export async function create(
   } catch (error) {
     next(error);
   }
-} 
+}
 
 //funcion para agregar canciones a la play list
 

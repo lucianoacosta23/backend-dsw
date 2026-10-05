@@ -4,25 +4,18 @@ import { Router } from 'express';
 import {
   requireAuth,
   requireAdmin,
+  requireMutationHeader,
 } from '../../middlewares/auth.middleware.js';
 
 //traemos las funciones del controlador
 
-import { 
-    searchAll,
-    //searchOnlyTracks,
-    //searchOnlyReleases,
-    //searchOnlyArtists,
-} from './search.controller.js';
+import {searchAll } from './search.controller.js';
 
 //constante de vinculacion
 export const searchRouter = Router();
 
 // Define la ruta GET para el buscador
-searchRouter.get('/', searchAll);
+searchRouter.get('/', requireAuth, requireMutationHeader, searchAll);
 
-//router.get('/tracks', searchOnlyTracks);
-//router.get('/releases', searchOnlyReleases);
-//router.get('/artists', searchOnlyArtists);
 
 export default searchRouter;

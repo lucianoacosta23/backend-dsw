@@ -19,9 +19,9 @@ artistRouter.get('/:id', findById);
 
 artistRouter.post(
   '/',
-  //requireAuth,
-  //requireAdmin,
-  //requireMutationHeader,
+  requireAuth,
+  requireAdmin,
+  requireMutationHeader,
   create,
 );
 

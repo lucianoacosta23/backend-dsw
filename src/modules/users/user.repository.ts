@@ -87,15 +87,19 @@ export class UserRepository {
 
     return user;
   }
-async findByUsername(username: string): Promise<User | null> {
-  const em = RequestContext.getEntityManager();
 
-  if (!em) {
-    throw new Error('No hay un contexto de base de datos activo');
+  //esta funcion compra que un nombre de ususuario sea igual a otro 
+  async findByUsername(username: string): Promise<User | null> {
+    const em = RequestContext.getEntityManager();
+
+    if (!em) {
+      throw new Error('No hay un contexto de base de datos activo');
+    }
+
+    return em.findOne(User, { username: username.trim().toLowerCase() });
   }
 
-  return em.findOne(User, { username: username.trim().toLowerCase() });
-}
+
   async delete(id: number): Promise<boolean> {
     const em = RequestContext.getEntityManager();
 
@@ -112,5 +116,17 @@ async findByUsername(username: string): Promise<User | null> {
     await em.removeAndFlush(user);
 
     return true;
+  }
+
+  //Esta funcion busca nombres similares, a diferencia de la funcion de arriba que busca exactamente el mismo nombre
+  async searchByName(searchTerm: string): Promise<User[]> {
+  const em = RequestContext.getEntityManager();
+  if (!em) throw new Error('No hay un contexto de base de datos activo');
+
+  return await em.find(User, {
+    $or: [
+      { username: { $ilike: `%${searchTerm}%` } }
+    ]
+  });
   }
 }

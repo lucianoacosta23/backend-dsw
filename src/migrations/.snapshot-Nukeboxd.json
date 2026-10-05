@@ -288,7 +288,7 @@
       "checks": [
         {
           "name": "comment_parent_not_self_check",
-          "columnName": "parent_id",
+          "columnName": "id",
           "definition": "CHECK ((parent_id <> id))",
           "expression": "parent_id <> id"
         },
@@ -1075,7 +1075,7 @@
       "checks": [
         {
           "name": "review_exactly_one_target_check",
-          "columnName": "track_id",
+          "columnName": "release_id",
           "definition": "CHECK (((release_id IS NOT NULL) <> (track_id IS NOT NULL)))",
           "expression": "(release_id IS NOT NULL) <> (track_id IS NOT NULL)"
         },
@@ -1364,6 +1364,58 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'PENDING'",
+          "comment": null,
+          "enumItems": [
+            "PENDING",
+            "DISMISSED",
+            "ACTIONED"
+          ],
+          "mappedType": "enum"
+        },
+        "moderated_by_id": {
+          "name": "moderated_by_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "moderated_at": {
+          "name": "moderated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
         }
       },
       "name": "review_report",
@@ -1400,6 +1452,19 @@
         }
       ],
       "foreignKeys": {
+        "review_report_moderated_by_id_foreign": {
+          "columnNames": [
+            "moderated_by_id"
+          ],
+          "constraintName": "review_report_moderated_by_id_foreign",
+          "localTableName": "public.review_report",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "set null"
+        },
         "review_report_reporter_id_foreign": {
           "columnNames": [
             "reporter_id"

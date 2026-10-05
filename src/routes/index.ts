@@ -11,6 +11,7 @@ import reviewRouter from '../modules/reviews/review.route.js';
 import commentRouter, { reviewCommentRouter } from '../modules/comments/comment.route.js';
 import reviewLikeRouter from '../modules/likes/like.route.js';
 import reviewReportRouter from '../modules/reports/report.route.js';
+import adminReportRouter from '../modules/reports/report.admin.route.js';
 const router = Router();
 
 
@@ -41,4 +42,5 @@ router.use('/tracks', trackRouter);
 router.use('/artists', artistRouter);
 router.use('/genres', genreRouter);
 router.use('/auth', authRouter);
+router.use('/admin/reports', adminReportRouter);
 export default router;

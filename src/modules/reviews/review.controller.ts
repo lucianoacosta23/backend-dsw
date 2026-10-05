@@ -148,3 +148,55 @@ export async function remove(
     next(error);
   }
 }
+
+// Endpoint público para el promedio y la distribución de puntuaciones.
+export async function getRatingStats(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const allowedFields = ['releaseId', 'trackId'];
+
+    if (
+      Object.keys(req.query).some(key => !allowedFields.includes(key))
+    ) {
+      throw new AppError(
+        'Solo se permiten los filtros releaseId y trackId',
+        400,
+      );
+    }
+
+    const hasReleaseId = req.query.releaseId !== undefined;
+    const hasTrackId = req.query.trackId !== undefined;
+
+    // Debe consultar un solo destino.
+    if (hasReleaseId === hasTrackId) {
+      throw new AppError(
+        'Debe indicar releaseId o trackId, pero no ambos',
+        400,
+      );
+    }
+
+    const targetType = hasReleaseId ? 'release' : 'track';
+    const targetId = parseReviewId(
+      hasReleaseId ? req.query.releaseId : req.query.trackId,
+    );
+
+    const stats = await reviewRepository.getRatingStats(
+      targetType,
+      targetId,
+    );
+
+    res.status(200).json({
+      message: 'Estadísticas de puntuaciones',
+      data: {
+        targetType,
+        targetId,
+        ...stats,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}

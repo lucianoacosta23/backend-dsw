@@ -2,7 +2,14 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import { requireAuth, requireMutationHeader } from '../../middlewares/auth.middleware.js';
 import { AppError } from '../../shared/errors/app-error.js';
-import { create, findAll, findById, remove, update } from './review.controller.js';
+import {
+  create,
+  findAll,
+  findById,
+  getRatingStats,
+  remove,
+  update,
+} from './review.controller.js';
 
 const reviewRouter = Router();
 
@@ -19,6 +26,9 @@ const requireJsonBody: RequestHandler = (req, _res, next) => {
 };
 
 reviewRouter.get('/', findAll);
+
+reviewRouter.get('/stats', getRatingStats);
+
 reviewRouter.get('/:id', findById);
 reviewRouter.post('/', requireAuth, requireMutationHeader, requireJsonBody, create);
 reviewRouter.patch('/:id', requireAuth, requireMutationHeader, requireJsonBody, update);

@@ -66,7 +66,6 @@ export async function searchAll(req: Request, res: Response, next: NextFunction)
             users = await userRepo.searchByName(searchTerm);
         }
         if (type === 'playlists') {
-            console.log("entre play");
           
             playlists = await playlistRepo.searchByName(searchTerm);
         }

@@ -7,6 +7,47 @@ import type { User } from '../users/user.entity.js';
 
 const followRepository = new FollowRepository();
 
+// Elimina únicamente el seguimiento del usuario de la sesión.
+export async function unfollowUser(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const authUser = res.locals.authUser as User | undefined;
+
+    if (authUser?.id === undefined) {
+      throw new AppError('Debe iniciar sesión', 401);
+    }
+
+    const rawId = req.params.id;
+
+    if (typeof rawId !== 'string' || !/^[1-9]\d*$/.test(rawId)) {
+      throw new AppError('El ID debe ser un entero positivo', 400);
+    }
+
+    const followedId = Number(rawId);
+
+    if (
+      !Number.isSafeInteger(followedId) ||
+      followedId > 2147483647
+    ) {
+      throw new AppError('El ID está fuera del rango permitido', 400);
+    }
+
+    if (authUser.id === followedId) {
+      throw new AppError('No podés dejar de seguirte a vos mismo', 400);
+    }
+
+    // Si el seguimiento ya no existe, también se considera completado.
+    await followRepository.delete(authUser.id, followedId);
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function followUser(
   req: Request,
   res: Response,
@@ -68,6 +109,9 @@ export async function followUser(
       return;
     }
 
+
     next(error);
   }
+
+
 }

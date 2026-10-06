@@ -1,27 +1,13 @@
-// Este modulo es para realizar busquedas de artistas, albun y canciones 
-
 import type { Request, Response, NextFunction } from 'express';
-import { ForeignKeyConstraintViolationException } from '@mikro-orm/core';
+import { wrap } from '@mikro-orm/core';
 
-//estos 3 import es para usar directamente los repositorios
+import { AppError } from '../../shared/errors/app-error.js';
+
 import { TrackRepository } from '../tracks/track.repository.js';
 import { ReleaseRepository } from '../releases/release.repository.js';
 import { ArtistRepository } from '../artists/artist.repository.js';
 import { UserRepository } from '../users/user.repository.js';
 import { PlaylistRepository } from '../playlist/playlist.repository.js';
-
-
-// Importamos las entidades solo para usarlas como identificadores en el repositorio
-import { Track } from '../tracks/track.entity.js';
-import { Release } from '../releases/release.entity.js';
-import { Artist } from '../artists/artist.entity.js';
-import { User } from '../users/user.entity.js';
-import { Playlist } from '../playlist/playlist.entity.js';
-
-//import { AppError } from '../../errors/AppError'; 
-import { AppError } from '../../shared/errors/app-error.js';
-
-import { wrap } from '@mikro-orm/core';
 
 const trackRepo = new TrackRepository();
 const releaseRepo = new ReleaseRepository();
@@ -29,58 +15,130 @@ const artistRepo = new ArtistRepository();
 const userRepo = new UserRepository();
 const playlistRepo = new PlaylistRepository();
 
+// Estos nombres también se usarán en los filtros del frontend.
+const SEARCH_TYPES = [
+  'tracks',
+  'releases',
+  'artists',
+  'users',
+  'playlists',
+] as const;
 
-export async function searchAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+type SearchType = (typeof SEARCH_TYPES)[number];
 
-    try {
-        const query = req.query.q;
-        
-        //Validamos que el usuario haya escrito algo en el buscador
-        if (typeof query !== 'string' || query.trim().length === 0) {
-            throw new AppError('Debes proporcionar un término de búsqueda (q)', 400);
-        }
-        //separamos los parametros de la peticion en dos,lo que busca y el filtro
-        const searchTerm = (req.query.q as string)?.trim() || '';
-        const type = (req.query.type as string)?.toLowerCase();
+// Sin filtro busca en todo. También acepta varios separados por comas.
+function parseSearchTypes(value: unknown): SearchType[] {
+  if (value === undefined) {
+    return [...SEARCH_TYPES];
+  }
 
-        // creamos las listas donde se guardan los datos en cada caso
-        let tracks: Track[] = [];
-        let artists: Artist[] = [];
-        let releases: Release[] = [];
-        let users: User[] = [];
-        let playlists: Playlist[] = [];
+  if (typeof value !== 'string') {
+    throw new AppError(
+      'El filtro type debe ser un texto separado por comas',
+      400,
+    );
+  }
 
-        if (!type || type === 'tracks') {  
-          tracks = await trackRepo.searchByName(searchTerm);
-        }
-        if (!type || type === 'artists') {
-          artists = await artistRepo.searchByName(searchTerm);
-        }
-        if (!type || type === 'releases') {
-          releases = await releaseRepo.searchByName(searchTerm);
-        }
-        
-        //estos filtros son exclusivos, si no se especifica que se quiere buscar un usuario
-        //o una play list, directamente muestra artistas, canciones y albunes
-        if (type === 'users') {
-            users = await userRepo.searchByName(searchTerm);
-        }
-        if (type === 'playlists') {
-          
-            playlists = await playlistRepo.searchByName(searchTerm);
-        }
+  const values = value
+    .toLowerCase()
+    .split(',')
+    .map(item => item.trim());
 
-        res.status(200).json({
-            success: true,
-            data: {
-                tracks: tracks.map(t => wrap(t).toPOJO()),
-                releases: releases.map(r => wrap(r).toPOJO()),
-                artists: artists.map(a => wrap(a).toPOJO()),
-                users: users.map(u => wrap(u).toPOJO()),
-                playlists: playlists.map(p => wrap(p).toPOJO()),
-            }
-        });
-    } catch (error) {
-        next(error);
+  if (
+    values.some(
+      item => !SEARCH_TYPES.includes(item as SearchType),
+    )
+  ) {
+    throw new AppError(
+      'Los filtros permitidos son tracks, releases, artists, users y playlists',
+      400,
+    );
+  }
+
+  // Evita repetir una búsqueda si se envía dos veces la misma categoría.
+  return [...new Set(values)] as SearchType[];
+}
+
+export async function searchAll(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (
+      Object.keys(req.query).some(
+        key => !['q', 'type'].includes(key),
+      )
+    ) {
+      throw new AppError('Solo se permiten q y type', 400);
     }
+
+    const rawQuery = req.query.q;
+
+    if (
+      typeof rawQuery !== 'string' ||
+      rawQuery.trim().length === 0
+    ) {
+      throw new AppError(
+        'Debe proporcionar un término de búsqueda',
+        400,
+      );
+    }
+
+    const searchTerm = rawQuery.trim();
+
+    if (searchTerm.length > 255) {
+      throw new AppError(
+        'La búsqueda no puede superar los 255 caracteres',
+        400,
+      );
+    }
+
+    const types = parseSearchTypes(req.query.type);
+
+    // Consulta únicamente las categorías seleccionadas.
+    const tracks = types.includes('tracks')
+      ? await trackRepo.searchByName(searchTerm)
+      : [];
+
+    const releases = types.includes('releases')
+      ? await releaseRepo.searchByName(searchTerm)
+      : [];
+
+    const artists = types.includes('artists')
+      ? await artistRepo.searchByName(searchTerm)
+      : [];
+
+    const users = types.includes('users')
+      ? await userRepo.searchByName(searchTerm)
+      : [];
+
+    const playlists = types.includes('playlists')
+      ? await playlistRepo.searchByName(searchTerm)
+      : [];
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tracks: tracks.map(track => wrap(track).toPOJO()),
+        releases: releases.map(release => wrap(release).toPOJO()),
+        artists: artists.map(artist => wrap(artist).toPOJO()),
+
+        // La búsqueda muestra datos públicos del usuario.
+        users: users.map(user => ({
+          id: user.id,
+          username: user.username,
+          fullName: user.fullName,
+        })),
+
+        playlists: playlists.map(playlist => ({
+          id: playlist.id,
+          name: playlist.name,
+          userId: playlist.user.id,
+        })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 }

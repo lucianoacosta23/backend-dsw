@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { AppError } from '../shared/errors/app-error.js';
+
+
+import spotifyCatalogRouter from '../modules/spotify/spotify-catalog.route.js';
 import userRoutes from '../modules/users/user.routes.js';
 import artistRouter from '../modules/artists/artist.route.js';
 import genreRouter from '../modules/genres/genres.route.js';
@@ -35,6 +38,8 @@ router.get('/health',(req,res)=>{
 });
 
 router.use('/admin/spotify', spotifyRouter);
+// Búsqueda de música externa para usuarios autenticados.
+router.use('/spotify', spotifyCatalogRouter);
 router.use('/users', userRoutes);
 router.use('/releases', releaseRouter);
 router.use('/reviews', reviewRouter);

@@ -13,7 +13,39 @@ export class FollowRepository {
 
     return em;
   }
+  // Devuelve los contadores y la relación entre el perfil y quien lo visita.
+  async getProfileStats(profileId: number, viewerId: number) {
+    const em = this.getEntityManager();
+    const isOwnProfile = profileId === viewerId;
 
+    const [followersCount, followingCount, isFollowing, followsMe] =
+      await Promise.all([
+        // Personas que siguen al usuario del perfil.
+        em.count(Follow, { followed: profileId }),
+
+        // Personas que el usuario del perfil sigue.
+        em.count(Follow, { follower: profileId }),
+
+        // ¿Yo sigo al usuario de este perfil?
+        isOwnProfile
+          ? Promise.resolve(false)
+          : this.exists(viewerId, profileId),
+
+        // ¿El usuario de este perfil me sigue a mí?
+        isOwnProfile
+          ? Promise.resolve(false)
+          : this.exists(profileId, viewerId),
+      ]);
+
+    return {
+      followersCount,
+      followingCount,
+      isFollowing,
+      followsMe,
+      isOwnProfile,
+    };
+  }
+  
   async create(
     followerId: number,
     followedId: number,

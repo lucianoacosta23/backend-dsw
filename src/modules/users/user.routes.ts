@@ -15,7 +15,7 @@ import {
   requireMutationHeader,
 } from '../../middlewares/auth.middleware.js';
 
-import { followUser } from '../follows/follow.controller.js';
+import { followUser, unfollowUser } from '../follows/follow.controller.js';
 
 const userRouter = Router();
 
@@ -30,7 +30,12 @@ userRouter.put(
   requireMutationHeader,
   followUser,
 );
-
+// requireAuth ya se aplica a todo este router.
+userRouter.delete(
+  '/:id/follow',
+  requireMutationHeader,
+  unfollowUser,
+);
 userRouter.patch(
   '/:id',
   requireSelfOrAdmin,

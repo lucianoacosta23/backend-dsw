@@ -5,8 +5,10 @@ import { UserRepository } from './user.repository.js';
 import type { UpdateUserInput } from './user.repository.js';
 import type { User } from './user.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
+import { FollowRepository } from '../follows/follow.repository.js';
 
 const userRepository = new UserRepository();
+const followRepository = new FollowRepository();
 
 export async function findAll(
   _req: Request,
@@ -270,6 +272,13 @@ export async function findByUsername(
   next: NextFunction,
 ): Promise<void> {
   try {
+    // La identidad de quien visita el perfil sale de la sesión.
+    const viewer = res.locals.authUser as User | undefined;
+
+    if (viewer?.id === undefined) {
+      throw new AppError('Debe iniciar sesión', 401);
+    }
+
     const rawUsername = req.query.username;
 
     if (typeof rawUsername !== 'string') {
@@ -287,9 +296,15 @@ export async function findByUsername(
 
     const user = await userRepository.findByUsername(username);
 
-    if (!user) {
+    if (!user || user.id === undefined) {
       throw new AppError('Usuario no encontrado', 404);
     }
+
+    // Agrega los contadores y las relaciones de seguimiento al perfil.
+    const followStats = await followRepository.getProfileStats(
+      user.id,
+      viewer.id,
+    );
 
     res.status(200).json({
       message: 'Usuario encontrado',
@@ -298,6 +313,7 @@ export async function findByUsername(
         username: user.username,
         fullName: user.fullName,
         createdAt: user.createdAt,
+        ...followStats,
       },
     });
   } catch (error) {

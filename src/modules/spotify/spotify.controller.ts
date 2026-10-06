@@ -236,3 +236,89 @@ export async function importSelectedAlbum(
     next(error);
   }
 }
+// Comparte las validaciones de las nuevas importaciones.
+function getSelectedResourceImporter(req: Request): {
+  spotifyId: string;
+  importer: SpotifyImporter;
+} {
+  const spotifyId = req.params.spotifyId;
+
+  if (
+    typeof spotifyId !== 'string' ||
+    !/^[a-zA-Z0-9]{22}$/.test(spotifyId)
+  ) {
+    throw new AppError(
+      'El ID de Spotify debe tener 22 caracteres alfanuméricos',
+      400,
+    );
+  }
+
+  const em = RequestContext.getEntityManager();
+
+  if (!(em instanceof EntityManager)) {
+    throw new Error('No hay un contexto de PostgreSQL activo');
+  }
+
+  return {
+    spotifyId,
+    importer: new SpotifyImporter(getSpotifyClient(), em.fork()),
+  };
+}
+
+// Conserva el manejo de errores y límites de Spotify.
+function handleSelectedResourceError(
+  error: unknown,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (error instanceof SpotifyApiError) {
+    if (error.retryAfter !== null) {
+      res.setHeader('Retry-After', error.retryAfter);
+    }
+
+    next(new AppError(error.message, error.statusCode));
+    return;
+  }
+
+  next(error);
+}
+
+export async function importSelectedTrack(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { spotifyId, importer } = getSelectedResourceImporter(req);
+    const result = await importer.importTrack(spotifyId);
+
+    res.setHeader('Cache-Control', 'no-store');
+
+    res.status(200).json({
+      message: 'Canción disponible en el catálogo',
+      data: result,
+    });
+  } catch (error) {
+    handleSelectedResourceError(error, res, next);
+  }
+}
+
+export async function importSelectedArtist(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { spotifyId, importer } = getSelectedResourceImporter(req);
+    const result = await importer.importArtist(spotifyId);
+
+    res.setHeader('Cache-Control', 'no-store');
+
+    res.status(result.createdArtist ? 201 : 200).json({
+      message: 'Artista disponible en el catálogo',
+      data: result,
+    });
+  } catch (error) {
+    handleSelectedResourceError(error, res, next);
+  }
+}

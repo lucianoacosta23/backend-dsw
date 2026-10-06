@@ -1,4 +1,4 @@
-import { RequestContext } from '@mikro-orm/core';
+import { LockMode, RequestContext } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
 import { Track } from '../tracks/track.entity.js';
@@ -38,12 +38,7 @@ export class PlaylistRepository {
       throw new AppError('Usuario no encontrado', 404);
     }
 
-    //verificamos que el nombre de la playlist no este en uso 
-
-    const existing = await em.findOne(Playlist, { name: input.name });
-    if (existing) {
-      throw new Error('Ya existe una playlist con este nombre');
-    }
+  
 
 
     // 2. Creamos la instancia de la playlist 
@@ -59,101 +54,172 @@ export class PlaylistRepository {
   }
 
 
-  //esta funcion es para agregar track a una playlist de un usuario, agrega la track solo por id
-  async addTrack(playlistId: number, trackId: number): Promise<Playlist> {
-    const em = this.getEntityManager();
+    async addTrack(
+    playlistId: number,
+    trackId: number,
+    ownerId: number,
+  ): Promise<Playlist> {
+    return this.getEntityManager().transactional(async tx => {
+      // Coordina las solicitudes que agregan canciones a esta playlist.
+      const playlist = await tx.findOne(
+        Playlist,
+        { id: playlistId },
+        {
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+          refresh: true,
+        },
+      );
 
-    // 1. Buscamos la playlist y popularmos sus tracks actuales
-    const playlist = await em.findOne(Playlist, { id: playlistId }, { populate: ['tracks'] });
-    if (!playlist) {
-      throw new AppError('Playlist no encontrada', 404);
-    }
+      if (!playlist) {
+        throw new AppError('Playlist no encontrada', 404);
+      }
 
-    // 2. Buscamos el track que el usuario quiere agregar
-    const track = await em.findOne(Track, { id: trackId });
-    if (!track) {
-      throw new AppError('Track no encontrado', 404);
-    }
+      // El dueño debe coincidir con el usuario de la sesión.
+      if (playlist.user.id !== ownerId) {
+        throw new AppError(
+          'Solo podés agregar canciones a tus propias playlists',
+          403,
+        );
+      }
 
-    // 3. Añadimos el track a la colección de la playlist
-    playlist.tracks.add(track);
+      await tx.populate(playlist, ['tracks']);
 
-    // 4. Guardamos los cambios
-    await em.flush();
-    // 5. Nos aseguramos de popular los track para que viajen en la respuesta
-    await em.populate(playlist, ['tracks']);
+      const track = await tx.findOne(Track, { id: trackId });
 
-    return playlist;
+      if (!track) {
+        throw new AppError('Canción no encontrada', 404);
+      }
+
+      // Repetir la solicitud no agrega otra copia de la canción.
+      if (!playlist.tracks.contains(track)) {
+        playlist.tracks.add(track);
+        await tx.flush();
+      }
+
+      // Prepara los datos que necesita la lista del frontend.
+      await tx.populate(playlist, [
+        'tracks.release',
+        'tracks.artists',
+      ]);
+
+      return playlist;
+    });
   }
 
 
-  //funcion para eliminar una track
-  async removeTrack(playlistId: number, trackId: number) {
-  // 1. Obtenemos el Entity Manager del contexto actual de la petición
-  const em = RequestContext.getEntityManager();
-  if (!em) {
-    throw new Error('No se pudo obtener el EntityManager del contexto');
+  async removeTrack(
+    playlistId: number,
+    trackId: number,
+    ownerId: number,
+  ): Promise<Playlist> {
+    return this.getEntityManager().transactional(async tx => {
+      const playlist = await tx.findOne(
+        Playlist,
+        { id: playlistId },
+        {
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+          refresh: true,
+        },
+      );
+
+      if (!playlist) {
+        throw new AppError('Playlist no encontrada', 404);
+      }
+
+      // Comprueba el dueño antes de modificar la colección.
+      if (playlist.user.id !== ownerId) {
+        throw new AppError(
+          'Solo podés quitar canciones de tus propias playlists',
+          403,
+        );
+      }
+
+      await tx.populate(playlist, ['tracks']);
+
+      const track = playlist.tracks
+        .getItems()
+        .find(item => item.id === trackId);
+
+      if (!track) {
+        throw new AppError(
+          'La canción no se encuentra en esta playlist',
+          404,
+        );
+      }
+
+      // Quita la relación; la canción permanece en el catálogo.
+      playlist.tracks.remove(track);
+      await tx.flush();
+
+      await tx.populate(playlist, [
+        'tracks.release',
+        'tracks.artists',
+      ]);
+
+      return playlist;
+    });
   }
 
-  // 2. Buscamos la playlist populando sus tracks
-  const playlist = await em.findOneOrFail(
-    Playlist,
-    { id: playlistId },
-    { populate: ['tracks'] },
-  );
+  async updatePlaylist(
+    id: number,
+    newName: string,
+    ownerId: number,
+  ): Promise<Playlist> {
+    return this.getEntityManager().transactional(async tx => {
+      const playlist = await tx.findOne(
+        Playlist,
+        { id },
+        {
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+          refresh: true,
+        },
+      );
 
-  // 3. Buscamos el track
-  const track = await em.findOneOrFail(Track, { id: trackId });
+      if (!playlist) {
+        throw new AppError('Playlist no encontrada', 404);
+      }
 
-  // 4. Validamos si la playlist realmente contiene esa canción
-  if (!playlist.tracks.contains(track)) {
-    throw new Error('La canción no se encuentra en esta playlist');
+      if (playlist.user.id !== ownerId) {
+        throw new AppError(
+          'Solo podés renombrar tus propias playlists',
+          403,
+        );
+      }
+
+      playlist.name = newName;
+      await tx.flush();
+
+      return playlist;
+    });
   }
 
-  // 5. Removemos la relación y guardamos los cambios
-  playlist.tracks.remove(track);
-  await em.flush();
+  async deletePlaylist(
+    id: number,
+    ownerId: number,
+  ): Promise<void> {
+    await this.getEntityManager().transactional(async tx => {
+      const playlist = await tx.findOne(
+        Playlist,
+        { id },
+        {
+          lockMode: LockMode.PESSIMISTIC_WRITE,
+          refresh: true,
+        },
+      );
 
-  return playlist;
-  }
+      if (!playlist) {
+        throw new AppError('Playlist no encontrada', 404);
+      }
 
-  //funcion para actualizar la play list, como tal solo se puede modificar el nombre de la misma
+      if (playlist.user.id !== ownerId) {
+        throw new AppError(
+          'Solo podés eliminar tus propias playlists',
+          403,
+        );
+      }
 
-  async updatePlaylist(id: number, newName: string) {
-    const em = RequestContext.getEntityManager();
-    if (!em) throw new Error('No se pudo obtener el EntityManager');
-
-    // 1. Verificar si ya existe OTRA playlist con ese mismo nombre (excluyendo la actual)
-    const existingWithName = await em.findOne(Playlist, { name: newName });
-    if (existingWithName && existingWithName.id !== id) {
-      throw new Error('Ya existe otra playlist con este nombre');
-    }
-
-    // 2. Buscar la playlist a actualizar
-    const playlist = await em.findOneOrFail(Playlist, { id });
-
-    // 3. Actualizar el nombre
-    playlist.name = newName;
-
-    // 4. Guardar cambios en la base de datos
-    await em.flush();
-
-    return playlist;
-  }
-
-
-  // funcion de eliminar la play list, esto hace una eliminacion total
-  async deletePlaylist(id: number) {
-  const em = RequestContext.getEntityManager();
-  if (!em) throw new Error('No se pudo obtener el EntityManager');
-
-  // 1. Buscamos la playlist (lanza error automático si no existe)
-  const playlist = await em.findOneOrFail(Playlist, { id });
-
-  // 2. La eliminamos de la base de datos
-  await em.removeAndFlush(playlist);
-
-  return playlist;
+      await tx.removeAndFlush(playlist);
+    });
   }
 
 

@@ -33,7 +33,7 @@ export class SpotifyAuthClient {
     }
   }
 
-  authorizationUrl(state: string): string {
+    authorizationUrl(state: string): string {
     const url = new URL('https://accounts.spotify.com/authorize');
 
     url.search = new URLSearchParams({
@@ -42,6 +42,9 @@ export class SpotifyAuthClient {
       redirect_uri: this.redirectUri,
       state,
       scope: 'user-read-private',
+
+      // Solicita mostrar nuevamente la autorización.
+      show_dialog: 'true',
     }).toString();
 
     return url.toString();

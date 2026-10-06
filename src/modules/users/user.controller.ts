@@ -320,3 +320,35 @@ export async function findByUsername(
     next(error);
   }
 }
+// Recupera el perfil propio directamente desde la sesión.
+export async function findOwnProfile(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const user = res.locals.authUser as User | undefined;
+
+    if (user?.id === undefined) {
+      throw new AppError('Debe iniciar sesión', 401);
+    }
+
+    const followStats = await followRepository.getProfileStats(
+      user.id,
+      user.id,
+    );
+
+    res.status(200).json({
+      message: 'Tu perfil',
+      data: {
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        createdAt: user.createdAt,
+        ...followStats,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}

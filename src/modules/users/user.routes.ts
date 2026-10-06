@@ -4,6 +4,7 @@ import {
   findAll,
   findById,
   findByUsername,
+  findOwnProfile,
   update,
   remove,
 } from './user.controller.js';
@@ -21,6 +22,7 @@ const userRouter = Router();
 
 userRouter.use(requireAuth);
 
+userRouter.get('/me', findOwnProfile);
 userRouter.get('/search', findByUsername);
 userRouter.get('/', requireAdmin, findAll);
 userRouter.get('/:id', requireSelfOrAdmin, findById);

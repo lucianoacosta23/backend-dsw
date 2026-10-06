@@ -8,21 +8,35 @@ import {
 import {
   searchSpotify,
   importSelectedAlbum,
+  importSelectedTrack,
+  importSelectedArtist,
 } from './spotify.controller.js';
 
 const spotifyCatalogRouter = Router();
 
-// Estas operaciones están disponibles para USER y ADMIN.
+// Disponibles para usuarios autenticados, tanto USER como ADMIN.
 spotifyCatalogRouter.use(requireAuth);
 
-// Buscar no guarda información.
+// Buscar consulta Spotify sin guardar los resultados.
 spotifyCatalogRouter.get('/search', searchSpotify);
 
-// Seleccionar un álbum puede crear registros: requiere el header.
+// Importar modifica el catálogo: requiere el header de mutaciones.
 spotifyCatalogRouter.post(
   '/albums/:spotifyId/import',
   requireMutationHeader,
   importSelectedAlbum,
+);
+
+spotifyCatalogRouter.post(
+  '/tracks/:spotifyId/import',
+  requireMutationHeader,
+  importSelectedTrack,
+);
+
+spotifyCatalogRouter.post(
+  '/artists/:spotifyId/import',
+  requireMutationHeader,
+  importSelectedArtist,
 );
 
 export default spotifyCatalogRouter;

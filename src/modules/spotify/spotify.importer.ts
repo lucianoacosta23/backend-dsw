@@ -341,4 +341,116 @@ export class SpotifyImporter {
       };
     });
   }
+    async importTrack(trackId: string): Promise<{
+    trackId: number;
+    releaseId: number;
+  }> {
+    // Valida el ID recibido antes de consultar la base o Spotify.
+    const requestedId = spotifyId(trackId);
+
+    // Si ya está guardada, reutilizamos la canción local.
+    const existing = await this.em.findOne(
+      Track,
+      { spotifyId: requestedId },
+      { populate: ['release'] },
+    );
+
+    if (existing) {
+      if (existing.id === undefined || existing.release.id === undefined) {
+        throw new Error('La canción local no tiene IDs válidos');
+      }
+
+      return {
+        trackId: existing.id,
+        releaseId: existing.release.id,
+      };
+    }
+
+    // Consulta la canción para conocer el álbum al que pertenece.
+    const spotifyTrack = await this.client.getTrack(requestedId);
+    const album = object(spotifyTrack.album, 'álbum de la canción');
+    const albumId = spotifyId(album.id);
+
+    // Reutiliza las validaciones y la transacción del importador de álbumes.
+    await this.importAlbum(albumId);
+
+    // Busca la canción que acaba de quedar guardada en el catálogo.
+    const imported = await this.em.findOne(
+      Track,
+      { spotifyId: requestedId },
+      {
+        populate: ['release'],
+        refresh: true,
+      },
+    );
+
+    if (
+      !imported ||
+      imported.id === undefined ||
+      imported.release.id === undefined
+    ) {
+      throw new Error(
+        'No se encontró la canción seleccionada después de importar su álbum',
+      );
+    }
+
+    return {
+      trackId: imported.id,
+      releaseId: imported.release.id,
+    };
+  }
+
+  async importArtist(artistId: string): Promise<{
+    artistId: number;
+    createdArtist: boolean;
+  }> {
+    const requestedId = spotifyId(artistId);
+
+    // Consulta Spotify antes de abrir la transacción.
+    const spotifyArtist = await this.client.getArtist(requestedId);
+
+    const data = {
+      spotifyId: spotifyId(spotifyArtist.id),
+      name: text(spotifyArtist.name, 'nombre del artista'),
+      imageUrl: parseImage(spotifyArtist.images),
+    };
+
+    return this.em.transactional(async tx => {
+      // Usa el mismo bloqueo que importAlbum para evitar duplicados
+      // cuando dos importaciones intentan guardar el mismo artista.
+      await tx.execute('select pg_advisory_xact_lock(20260914)');
+
+      let artist = await tx.findOne(
+        Artist,
+        { spotifyId: data.spotifyId },
+        { refresh: true },
+      );
+
+      const createdArtist = artist === null;
+
+      if (!artist) {
+        artist = new Artist();
+        artist.spotifyId = data.spotifyId;
+        tx.persist(artist);
+      }
+
+      artist.name = data.name;
+
+      // Si Spotify no entrega una imagen, conserva la que ya tenía.
+      if (data.imageUrl !== null) {
+        artist.imageUrl = data.imageUrl;
+      }
+
+      await tx.flush();
+
+      if (artist.id === undefined) {
+        throw new Error('El artista importado no tiene un ID válido');
+      }
+
+      return {
+        artistId: artist.id,
+        createdArtist,
+      };
+    });
+  }
 }

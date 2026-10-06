@@ -217,6 +217,54 @@ export class SpotifyClient {
     };
   }
 
+  // Consulta una canción. Todavía no guarda nada en nuestra base.
+  async getTrack(
+    trackId: string,
+  ): Promise<Record<string, unknown>> {
+    if (!/^[a-zA-Z0-9]{22}$/.test(trackId)) {
+      throw new Error('El ID de canción de Spotify no es válido');
+    }
+
+    const track = asObject(
+      await this.getJson(
+        `https://api.spotify.com/v1/tracks/${trackId}`,
+      ),
+      'canción',
+    );
+
+    if (track.id !== trackId) {
+      throw new Error(
+        'Spotify devolvió una canción diferente a la solicitada',
+      );
+    }
+
+    return track;
+  }
+
+  // Consulta un artista, incluyendo sus imágenes.
+  async getArtist(
+    artistId: string,
+  ): Promise<Record<string, unknown>> {
+    if (!/^[a-zA-Z0-9]{22}$/.test(artistId)) {
+      throw new Error('El ID de artista de Spotify no es válido');
+    }
+
+    const artist = asObject(
+      await this.getJson(
+        `https://api.spotify.com/v1/artists/${artistId}`,
+      ),
+      'artista',
+    );
+
+    if (artist.id !== artistId) {
+      throw new Error(
+        'Spotify devolvió un artista diferente al solicitado',
+      );
+    }
+
+    return artist;
+  }
+
   async getAlbumWithTracks(albumId: string): Promise<{
     album: Record<string, unknown>;
     tracks: unknown[];

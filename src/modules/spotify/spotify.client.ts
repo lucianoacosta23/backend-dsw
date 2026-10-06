@@ -158,6 +158,65 @@ export class SpotifyClient {
     );
   }
 
+  // Busca en Spotify sin guardar todavía los resultados en nuestra base.
+  async searchCatalog(
+    query: string,
+    types: Array<'album' | 'track' | 'artist'>,
+  ): Promise<{
+    albums: unknown[];
+    tracks: unknown[];
+    artists: unknown[];
+  }> {
+    if (types.length === 0) {
+      return { albums: [], tracks: [], artists: [] };
+    }
+
+    const searchTerm = query.trim();
+
+    if (!searchTerm || searchTerm.length > 255) {
+      throw new Error('El término de búsqueda de Spotify no es válido');
+    }
+
+    const params = new URLSearchParams({
+      q: searchTerm,
+      type: [...new Set(types)].join(','),
+      market: 'AR',
+      limit: '10',
+    });
+
+    // Reutiliza el token, los tiempos de espera y el manejo de errores.
+    const response = asObject(
+      await this.getJson(
+        `https://api.spotify.com/v1/search?${params.toString()}`,
+      ),
+      'resultados de búsqueda',
+    );
+
+    const readItems = (
+      key: 'albums' | 'tracks' | 'artists',
+      requested: boolean,
+    ): unknown[] => {
+      if (!requested) return [];
+
+      const page = asObject(response[key], `resultados de ${key}`);
+
+      if (!Array.isArray(page.items)) {
+        throw new Error(
+          `Spotify devolvió una lista inválida de ${key}`,
+        );
+      }
+
+      // Algunos resultados pueden venir como null.
+      return page.items.filter(item => item !== null);
+    };
+
+    return {
+      albums: readItems('albums', types.includes('album')),
+      tracks: readItems('tracks', types.includes('track')),
+      artists: readItems('artists', types.includes('artist')),
+    };
+  }
+
   async getAlbumWithTracks(albumId: string): Promise<{
     album: Record<string, unknown>;
     tracks: unknown[];

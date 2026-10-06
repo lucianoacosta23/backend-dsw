@@ -1,21 +1,12 @@
-//importamos las funciones de expres para vincular la ruta
 import { Router } from 'express';
-//importamos las validaciones de seguridad
-import {
-  requireAuth,
-  requireAdmin,
-  requireMutationHeader,
-} from '../../middlewares/auth.middleware.js';
-
-//traemos las funciones del controlador
-
-import {searchAll } from './search.controller.js';
-
-//constante de vinculacion
+import { requireAuth } from '../../middlewares/auth.middleware.js';
+import { searchAll } from './search.controller.js';
 export const searchRouter = Router();
-
-// Define la ruta GET para el buscador
-searchRouter.get('/', requireAuth, requireMutationHeader, searchAll);
-
-
+// Buscar requiere sesión, pero no modifica datos:
+// por eso no necesita el header de mutaciones.
+searchRouter.get('/', requireAuth, searchAll);
 export default searchRouter;
+
+
+
+

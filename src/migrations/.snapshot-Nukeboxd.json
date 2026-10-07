@@ -438,7 +438,7 @@
       "checks": [
         {
           "name": "follow_no_self_follow",
-          "columnName": "follower_id",
+          "columnName": "followed_id",
           "definition": "CHECK ((follower_id <> followed_id))",
           "expression": "follower_id <> followed_id"
         }
@@ -617,6 +617,140 @@
           ],
           "updateRule": "cascade",
           "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "playlist_id": {
+          "name": "playlist_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "playlist_save",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "playlist_save_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "playlist_id",
+            "user_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "playlist_save_playlist_id_user_id_unique",
+          "unique": true,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "user_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "playlist_save_user_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "playlist_save_playlist_id_foreign": {
+          "columnNames": [
+            "playlist_id"
+          ],
+          "constraintName": "playlist_save_playlist_id_foreign",
+          "localTableName": "public.playlist_save",
+          "referencedTableName": "public.playlist",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "playlist_save_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "playlist_save_user_id_foreign",
+          "localTableName": "public.playlist_save",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
         }
       },
       "nativeEnums": {},

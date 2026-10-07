@@ -51,11 +51,10 @@ export class ReleaseRepository {
        from "release" r
        left join "review" rv
          on rv."release_id" = r."id" and rv."deleted_at" is null
-       where r."type" = ?
        group by r."id"
        order by count(rv."id") desc, r."name" asc, r."id" asc
        limit ?`,
-      [ReleaseType.ALBUM, limit],
+      [limit],
     );
 
     if (rows.length === 0) return [];

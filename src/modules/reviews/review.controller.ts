@@ -73,15 +73,54 @@ export async function findById(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const review = await reviewRepository.findById(
+    const result = await reviewRepository.findDetail(
       parseReviewId(req.params.id),
+      req.session.userId,
     );
 
-    if (!review) throw new AppError('Reseña no encontrada', 404);
+    if (!result) {
+      throw new AppError('Reseña no encontrada', 404);
+    }
+
+    const { review, likeCount, likedByMe } = result;
+    const track = review.track;
+    const release = review.release;
+
+    if (!track && !release) {
+      throw new Error('La reseña no tiene música asociada');
+    }
+
+    const target = track
+      ? {
+          type: 'track',
+          id: track.id,
+          name: track.name,
+          imageUrl: track.release.imageUrl,
+          artists: track.artists.getItems().map(artist => ({
+            id: artist.id,
+            name: artist.name,
+          })),
+        }
+      : {
+          type: 'release',
+          id: release!.id,
+          name: release!.name,
+          imageUrl: release!.imageUrl,
+          artists: release!.artists.getItems().map(artist => ({
+            id: artist.id,
+            name: artist.name,
+          })),
+        };
+
+    res.setHeader('Cache-Control', 'no-store');
 
     res.status(200).json({
       message: 'Reseña encontrada',
-      data: reviewResponse(review),
+      data: {
+        ...reviewResponse(review, likeCount),
+        likedByMe,
+        target,
+      },
     });
   } catch (error) {
     next(error);
@@ -195,6 +234,98 @@ export async function getRatingStats(
         targetId,
         ...stats,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function findPopularReviews(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (
+      Object.keys(req.query).some(
+        key => !['page', 'pageSize'].includes(key),
+      )
+    ) {
+      throw new AppError(
+        'Solo se permiten los filtros page y pageSize',
+        400,
+      );
+    }
+
+    const page = req.query.page === undefined
+      ? 1
+      : parseReviewId(req.query.page);
+
+    const pageSize = req.query.pageSize === undefined
+      ? 4
+      : parseReviewId(req.query.pageSize);
+
+    if (pageSize > 100) {
+      throw new AppError('pageSize no puede superar 100', 400);
+    }
+
+    if ((page - 1) * pageSize > 2147483647) {
+      throw new AppError('La página está fuera del rango permitido', 400);
+    }
+
+    const { items, total } = await reviewRepository.findPopular(
+      page,
+      pageSize,
+      actor(res).id,
+    );
+
+    res.setHeader('Cache-Control', 'no-store');
+
+    res.status(200).json({
+      message: 'Reseñas más populares',
+      data: items.map(({ review, likeCount, likedByMe }) => {
+        const track = review.track;
+        const release = review.release;
+
+        if (!track && !release) {
+          throw new Error('La reseña no tiene música asociada');
+        }
+
+        const target = track
+          ? {
+              type: 'track',
+              id: track.id,
+              name: track.name,
+              imageUrl: track.release.imageUrl,
+              artists: track.artists.getItems().map(artist => ({
+                id: artist.id,
+                name: artist.name,
+              })),
+            }
+          : {
+              type: 'release',
+              id: release!.id,
+              name: release!.name,
+              imageUrl: release!.imageUrl,
+              artists: release!.artists.getItems().map(artist => ({
+                id: artist.id,
+                name: artist.name,
+              })),
+            };
+
+        return {
+          ...reviewResponse(review, likeCount),
+          likedByMe,
+          target,
+        };
+      }),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+      sort: 'popular',
     });
   } catch (error) {
     next(error);

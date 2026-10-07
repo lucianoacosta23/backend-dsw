@@ -1,6 +1,7 @@
 import { LockMode, RequestContext } from '@mikro-orm/core';
 import type { FilterQuery } from '@mikro-orm/core';
 
+import { ReviewLike } from '../likes/like.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { User } from '../users/user.entity.js';
 import { Release } from '../releases/release.entity.js';
@@ -17,6 +18,73 @@ export class ReviewRepository {
     const em = RequestContext.getEntityManager();
     if (!em) throw new Error('No hay un contexto de base de datos activo');
     return em;
+  }
+
+  async findDetail(id: number, viewerId?: number) {
+    const em = this.getEntityManager();
+
+    const review = await em.findOne(
+      Review,
+      { id, deletedAt: null },
+      {
+        populate: [
+          'author',
+          'release.artists',
+          'track.release',
+          'track.artists',
+        ],
+      },
+    );
+
+    if (!review) {
+      return null;
+    }
+
+    const [likeCount, viewerLikes] = await Promise.all([
+      em.count(ReviewLike, { review: id }),
+      viewerId === undefined
+        ? Promise.resolve(0)
+        : em.count(ReviewLike, {
+            review: id,
+            user: viewerId,
+          }),
+    ]);
+
+    return {
+      review,
+      likeCount,
+      likedByMe: viewerLikes > 0,
+    };
+  }
+
+    async findPopular(
+    page: number,
+    pageSize: number,
+    viewerId: number,
+  ) {
+    // Reutiliza el ranking por likes y excluye reseñas dadas de baja.
+    const result = await this.findAll(
+      {
+        page,
+        pageSize,
+        sort: 'popular',
+      },
+      viewerId,
+    );
+
+    // El Home necesita mostrar qué música corresponde a cada reseña.
+    if (result.items.length > 0) {
+      await this.getEntityManager().populate(
+        result.items.map(item => item.review),
+        [
+          'release.artists',
+          'track.release',
+          'track.artists',
+        ],
+      );
+    }
+
+    return result;
   }
 
   async findAll(

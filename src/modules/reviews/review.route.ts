@@ -9,6 +9,7 @@ import {
   getRatingStats,
   remove,
   update,
+  findPopularReviews,
 } from './review.controller.js';
 
 const reviewRouter = Router();
@@ -28,7 +29,7 @@ const requireJsonBody: RequestHandler = (req, _res, next) => {
 reviewRouter.get('/', findAll);
 
 reviewRouter.get('/stats', getRatingStats);
-
+reviewRouter.get('/popular', requireAuth, findPopularReviews);
 reviewRouter.get('/:id', findById);
 reviewRouter.post('/', requireAuth, requireMutationHeader, requireJsonBody, create);
 reviewRouter.patch('/:id', requireAuth, requireMutationHeader, requireJsonBody, update);

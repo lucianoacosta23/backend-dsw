@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { PlaylistSave } from '../modules/playlist/playlist-save.entity.js';
 import { defineConfig } from '@mikro-orm/postgresql';
 import { User } from '../modules/users/user.entity.js';
 import { Artist } from '../modules/artists/artist.entity.js';
@@ -27,7 +28,7 @@ const dbConfig = {
 
 export default defineConfig({
 
-  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow, ReviewLike, ReviewReport, Playlist],
+  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow, ReviewLike, ReviewReport, Playlist, PlaylistSave],
 
   extensions: [Migrator],
   ...dbConfig,

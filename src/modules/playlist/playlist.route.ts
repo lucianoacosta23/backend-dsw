@@ -1,24 +1,67 @@
 import { Router } from 'express';
-import { findAll, create, addTrack, removeTrack, update, remove } from './playlist.controller.js';
+
 import {
   requireAuth,
-  requireAdmin,
   requireMutationHeader,
 } from '../../middlewares/auth.middleware.js';
 
+import {
+  findAll,
+  create,
+  addTrack,
+  removeTrack,
+  update,
+  remove,
+} from './playlist.controller.js';
+
+import {
+  findMyPlaylists,
+  findSavedPlaylists,
+  findPopularPlaylists,
+  savePlaylist,
+  unsavePlaylist,
+} from './playlist-library.controller.js';
 
 export const playlistRouter = Router();
 
-playlistRouter.get('/', requireAuth, requireMutationHeader, findAll);
+// Todas las operaciones requieren sesión.
+playlistRouter.use(requireAuth);
 
-playlistRouter.post('/', requireAuth, requireMutationHeader, create);
+// Consultas: no requieren el header de mutaciones.
+playlistRouter.get('/mine', findMyPlaylists);
+playlistRouter.get('/saved', findSavedPlaylists);
+playlistRouter.get('/popular', findPopularPlaylists);
+playlistRouter.get('/', findAll);
 
-playlistRouter.post('/:id/tracks', requireAuth, requireMutationHeader, addTrack);
+// Guardar y dejar de guardar.
+playlistRouter.post(
+  '/:id/save',
+  requireMutationHeader,
+  savePlaylist,
+);
 
-playlistRouter.delete('/:id/tracks/:trackId', requireAuth, requireMutationHeader, removeTrack);
+playlistRouter.delete(
+  '/:id/save',
+  requireMutationHeader,
+  unsavePlaylist,
+);
 
-playlistRouter.patch('/:id', requireAuth, requireMutationHeader, update);
+// CRUD existente.
+playlistRouter.post('/', requireMutationHeader, create);
 
-playlistRouter.delete('/:id', requireAuth, requireMutationHeader, remove)
+playlistRouter.post(
+  '/:id/tracks',
+  requireMutationHeader,
+  addTrack,
+);
+
+playlistRouter.delete(
+  '/:id/tracks/:trackId',
+  requireMutationHeader,
+  removeTrack,
+);
+
+playlistRouter.patch('/:id', requireMutationHeader, update);
+playlistRouter.delete('/:id', requireMutationHeader, remove);
 
 export default playlistRouter;

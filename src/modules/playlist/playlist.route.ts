@@ -18,6 +18,7 @@ import {
   findMyPlaylists,
   findSavedPlaylists,
   findPopularPlaylists,
+  findPlaylistDetail,
   savePlaylist,
   unsavePlaylist,
 } from './playlist-library.controller.js';
@@ -32,6 +33,9 @@ playlistRouter.get('/mine', findMyPlaylists);
 playlistRouter.get('/saved', findSavedPlaylists);
 playlistRouter.get('/popular', findPopularPlaylists);
 playlistRouter.get('/', findAll);
+
+// Debe ir después de /mine, /saved y /popular para no tapar esas rutas.
+playlistRouter.get('/:id', findPlaylistDetail);
 
 // Guardar y dejar de guardar.
 playlistRouter.post(
@@ -64,4 +68,4 @@ playlistRouter.delete(
 playlistRouter.patch('/:id', requireMutationHeader, update);
 playlistRouter.delete('/:id', requireMutationHeader, remove);
 
-export default playlistRouter;
+export default playlistRouter;

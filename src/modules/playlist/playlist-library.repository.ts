@@ -116,6 +116,63 @@ export class PlaylistLibraryRepository {
     });
   }
 
+  // Devuelve una playlist con sus canciones para la vista de detalle.
+  async findDetail(playlistId: number, viewerId: number) {
+    const em = this.getEntityManager();
+
+    const playlist = await em.findOne(
+      Playlist,
+      { id: playlistId },
+      { populate: ['user', 'tracks.release', 'tracks.artists'] },
+    );
+
+    if (!playlist) {
+      throw new AppError('Playlist no encontrada', 404);
+    }
+
+    const [saveCount, savedByViewer] = await Promise.all([
+      em.count(PlaylistSave, { playlist: playlistId }),
+      em.count(PlaylistSave, {
+        playlist: playlistId,
+        user: viewerId,
+      }),
+    ]);
+
+    // La tabla playlist_tracks no guarda posición: se ordena por ID
+    // para que la lista siempre se vea igual.
+    const tracks = [...playlist.tracks.getItems()].sort(
+      (a, b) => (a.id ?? 0) - (b.id ?? 0),
+    );
+
+    return {
+      id: playlist.id,
+      name: playlist.name,
+      author: {
+        id: playlist.user.id,
+        username: playlist.user.username,
+        fullName: playlist.user.fullName,
+      },
+      saveCount,
+      savedByMe: savedByViewer > 0,
+      isOwnPlaylist: playlist.user.id === viewerId,
+      tracks: tracks.map(track => ({
+        id: track.id,
+        spotifyId: track.spotifyId,
+        name: track.name,
+        durationMs: track.durationMs,
+        release: {
+          id: track.release.id,
+          name: track.release.name,
+          imageUrl: track.release.imageUrl,
+        },
+        artists: track.artists.getItems().map(artist => ({
+          id: artist.id,
+          name: artist.name,
+        })),
+      })),
+    };
+  }
+
   async list(
     mode: PlaylistListMode,
     viewerId: number,
@@ -224,4 +281,4 @@ export class PlaylistLibraryRepository {
       })),
     };
   }
-}
+}

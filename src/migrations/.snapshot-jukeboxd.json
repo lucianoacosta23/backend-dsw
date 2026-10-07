@@ -134,6 +134,233 @@
           "enumItems": [],
           "mappedType": "integer"
         },
+        "review_id": {
+          "name": "review_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "edited_at": {
+          "name": "edited_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "comment",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "parent_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "comment_parent_idx",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "comment_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "review_id",
+            "parent_id",
+            "created_at",
+            "id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "comment_visible_children_idx",
+          "unique": false,
+          "primary": false,
+          "expression": "CREATE INDEX comment_visible_children_idx ON public.comment USING btree (review_id, parent_id, created_at, id) WHERE (deleted_at IS NULL)"
+        }
+      ],
+      "checks": [
+        {
+          "name": "comment_parent_not_self_check",
+          "columnName": "parent_id",
+          "definition": "CHECK ((parent_id <> id))",
+          "expression": "parent_id <> id"
+        },
+        {
+          "name": "comment_text_length_check",
+          "columnName": "text",
+          "definition": "CHECK (((char_length(text) >= 1) AND (char_length(text) <= 2000)))",
+          "expression": "(char_length(text) >= 1) AND (char_length(text) <= 2000)"
+        }
+      ],
+      "foreignKeys": {
+        "comment_author_id_foreign": {
+          "columnNames": [
+            "author_id"
+          ],
+          "constraintName": "comment_author_id_foreign",
+          "localTableName": "public.comment",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "comment_parent_id_foreign": {
+          "columnNames": [
+            "parent_id"
+          ],
+          "constraintName": "comment_parent_id_foreign",
+          "localTableName": "public.comment",
+          "referencedTableName": "public.comment",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "comment_review_id_foreign": {
+          "columnNames": [
+            "review_id"
+          ],
+          "constraintName": "comment_review_id_foreign",
+          "localTableName": "public.comment",
+          "referencedTableName": "public.review",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "follower_id": {
           "name": "follower_id",
           "type": "int4",
@@ -211,7 +438,7 @@
       "checks": [
         {
           "name": "follow_no_self_follow",
-          "columnName": "follower_id",
+          "columnName": "followed_id",
           "definition": "CHECK ((follower_id <> followed_id))",
           "expression": "follower_id <> followed_id"
         }
@@ -308,6 +535,306 @@
       ],
       "checks": [],
       "foreignKeys": {},
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        }
+      },
+      "name": "playlist",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "playlist_pkey",
+          "unique": true,
+          "primary": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "playlist_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "playlist_user_id_foreign",
+          "localTableName": "public.playlist",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "playlist_id": {
+          "name": "playlist_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "playlist_save",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "playlist_save_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "playlist_id",
+            "user_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "playlist_save_playlist_id_user_id_unique",
+          "unique": true,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "user_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "playlist_save_user_id_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "playlist_save_playlist_id_foreign": {
+          "columnNames": [
+            "playlist_id"
+          ],
+          "constraintName": "playlist_save_playlist_id_foreign",
+          "localTableName": "public.playlist_save",
+          "referencedTableName": "public.playlist",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "playlist_save_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "playlist_save_user_id_foreign",
+          "localTableName": "public.playlist_save",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "playlist_id": {
+          "name": "playlist_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "track_id": {
+          "name": "track_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        }
+      },
+      "name": "playlist_tracks",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "playlist_id",
+            "track_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "playlist_tracks_pkey",
+          "unique": true,
+          "primary": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "playlist_tracks_playlist_id_foreign": {
+          "columnNames": [
+            "playlist_id"
+          ],
+          "constraintName": "playlist_tracks_playlist_id_foreign",
+          "localTableName": "public.playlist_tracks",
+          "referencedTableName": "public.playlist",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "playlist_tracks_track_id_foreign": {
+          "columnNames": [
+            "track_id"
+          ],
+          "constraintName": "playlist_tracks_track_id_foreign",
+          "localTableName": "public.playlist_tracks",
+          "referencedTableName": "public.track",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
       "nativeEnums": {},
       "comment": null
     },
@@ -635,6 +1162,629 @@
           "constraintName": "release_genres_release_id_foreign",
           "localTableName": "public.release_genres",
           "referencedTableName": "public.release",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "rating": {
+          "name": "rating",
+          "type": "numeric",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "edited_at": {
+          "name": "edited_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "track_id": {
+          "name": "track_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        }
+      },
+      "name": "review",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "author_id",
+            "release_id",
+            "created_at",
+            "id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "review_author_release_latest_idx",
+          "unique": false,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "author_id",
+            "created_at",
+            "id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "review_author_visible_idx",
+          "unique": false,
+          "primary": false,
+          "expression": "CREATE INDEX review_author_visible_idx ON public.review USING btree (author_id, created_at DESC, id DESC) WHERE (deleted_at IS NULL)"
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "review_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "release_id",
+            "created_at",
+            "id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "review_release_visible_idx",
+          "unique": false,
+          "primary": false,
+          "expression": "CREATE INDEX review_release_visible_idx ON public.review USING btree (release_id, created_at DESC, id DESC) WHERE (deleted_at IS NULL)"
+        }
+      ],
+      "checks": [
+        {
+          "name": "review_exactly_one_target_check",
+          "columnName": "release_id",
+          "definition": "CHECK (((release_id IS NOT NULL) <> (track_id IS NOT NULL)))",
+          "expression": "(release_id IS NOT NULL) <> (track_id IS NOT NULL)"
+        },
+        {
+          "name": "review_rating_check",
+          "columnName": "rating",
+          "definition": "CHECK ((rating = ANY (ARRAY[0.5, (1)::numeric, 1.5, (2)::numeric, 2.5, (3)::numeric, 3.5, (4)::numeric, 4.5, (5)::numeric])))",
+          "expression": "rating = ANY ARRAY[0.5, (1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5])"
+        },
+        {
+          "name": "review_text_length_check",
+          "columnName": "text",
+          "definition": "CHECK (((text IS NULL) OR ((char_length(text) >= 1) AND (char_length(text) <= 2000))))",
+          "expression": "(text IS NULL) OR ((char_length(text) >= 1) AND (char_length(text) <= 2000))"
+        }
+      ],
+      "foreignKeys": {
+        "review_author_id_foreign": {
+          "columnNames": [
+            "author_id"
+          ],
+          "constraintName": "review_author_id_foreign",
+          "localTableName": "public.review",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "review_release_id_foreign": {
+          "columnNames": [
+            "release_id"
+          ],
+          "constraintName": "review_release_id_foreign",
+          "localTableName": "public.review",
+          "referencedTableName": "public.release",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        },
+        "review_track_id_foreign": {
+          "columnNames": [
+            "track_id"
+          ],
+          "constraintName": "review_track_id_foreign",
+          "localTableName": "public.review",
+          "referencedTableName": "public.track",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "no action"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "review_id": {
+          "name": "review_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "review_like",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "review_like_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "review_id",
+            "user_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "review_like_review_id_user_id_unique",
+          "unique": true,
+          "primary": false
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {
+        "review_like_review_id_foreign": {
+          "columnNames": [
+            "review_id"
+          ],
+          "constraintName": "review_like_review_id_foreign",
+          "localTableName": "public.review_like",
+          "referencedTableName": "public.review",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "review_like_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "review_like_user_id_foreign",
+          "localTableName": "public.review_like",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "reporter_id": {
+          "name": "reporter_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "review_id": {
+          "name": "review_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "SPAM",
+            "HARASSMENT",
+            "HATE_SPEECH",
+            "INAPPROPRIATE_CONTENT",
+            "SPOILER",
+            "OTHER"
+          ],
+          "mappedType": "enum"
+        },
+        "details": {
+          "name": "details",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'PENDING'",
+          "comment": null,
+          "enumItems": [
+            "PENDING",
+            "DISMISSED",
+            "ACTIONED"
+          ],
+          "mappedType": "enum"
+        },
+        "moderated_by_id": {
+          "name": "moderated_by_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "moderated_at": {
+          "name": "moderated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "name": "review_report",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "review_report_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "review_id",
+            "reporter_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "review_report_review_id_reporter_id_unique",
+          "unique": true,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "review_report_details_length_check",
+          "columnName": "details",
+          "definition": "CHECK (((details IS NULL) OR ((char_length(details) >= 1) AND (char_length(details) <= 500))))",
+          "expression": "(details IS NULL) OR ((char_length(details) >= 1) AND (char_length(details) <= 500))"
+        }
+      ],
+      "foreignKeys": {
+        "review_report_moderated_by_id_foreign": {
+          "columnNames": [
+            "moderated_by_id"
+          ],
+          "constraintName": "review_report_moderated_by_id_foreign",
+          "localTableName": "public.review_report",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "set null"
+        },
+        "review_report_reporter_id_foreign": {
+          "columnNames": [
+            "reporter_id"
+          ],
+          "constraintName": "review_report_reporter_id_foreign",
+          "localTableName": "public.review_report",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "cascade"
+        },
+        "review_report_review_id_foreign": {
+          "columnNames": [
+            "review_id"
+          ],
+          "constraintName": "review_report_review_id_foreign",
+          "localTableName": "public.review_report",
+          "referencedTableName": "public.review",
           "referencedColumnNames": [
             "id"
           ],
@@ -1006,7 +2156,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "unique": false,
+          "unique": true,
           "length": 255,
           "precision": null,
           "scale": null,
@@ -1142,6 +2292,16 @@
           "composite": false,
           "constraint": true,
           "keyName": "user_spotify_id_unique",
+          "unique": true,
+          "primary": false
+        },
+        {
+          "columnNames": [
+            "username"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "user_username_unique",
           "unique": true,
           "primary": false
         }

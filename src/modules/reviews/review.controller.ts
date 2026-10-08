@@ -331,3 +331,81 @@ export async function findPopularReviews(
     next(error);
   }
 }
+
+export async function findHistory(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const reviewId = parseReviewId(req.params.id);
+
+    const parsePageValue = (
+      value: unknown,
+      defaultValue: number,
+      maximum: number,
+      field: string,
+    ): number => {
+      if (value === undefined) return defaultValue;
+
+      if (
+        typeof value !== 'string' ||
+        !/^[1-9]\d*$/.test(value)
+      ) {
+        throw new AppError(
+          `${field} debe ser un entero positivo`,
+          400,
+        );
+      }
+
+      const parsed = Number(value);
+
+      if (!Number.isSafeInteger(parsed) || parsed > maximum) {
+        throw new AppError(
+          `${field} debe ser menor o igual a ${maximum}`,
+          400,
+        );
+      }
+
+      return parsed;
+    };
+
+    const page = parsePageValue(
+      req.query.page,
+      1,
+      1_000_000,
+      'page',
+    );
+
+    const pageSize = parsePageValue(
+      req.query.pageSize,
+      10,
+      100,
+      'pageSize',
+    );
+
+    const { items, total } = await reviewRepository.findHistory(
+      reviewId,
+      page,
+      pageSize,
+    );
+
+    res.status(200).json({
+      message: 'Historial de la reseña',
+      data: items.map(revision => ({
+        id: revision.id,
+        text: revision.text,
+        effectiveAt: revision.effectiveAt,
+        replacedAt: revision.replacedAt,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}

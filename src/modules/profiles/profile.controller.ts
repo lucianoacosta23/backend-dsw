@@ -5,6 +5,9 @@ import { PlaylistLibraryRepository } from '../playlist/playlist-library.reposito
 import { readPagination } from '../playlist/playlist-library.controller.js';
 import { profileEntityManager, ProfileRepository } from './profile.repository.js';
 import { parseProfilePatch, routeId } from './profile.validation.js';
+import { UserRepository } from '../users/user.repository.js';
+
+const users = new UserRepository();
 
 const profiles = new ProfileRepository();
 export const readProfile: RequestHandler = async (req, res, next) => {
@@ -15,7 +18,13 @@ export const readProfile: RequestHandler = async (req, res, next) => {
       if (typeof value !== 'string' || !value.trim() || value.trim().length > 255 || value.includes('\0')) {
         throw new AppError('username debe ser un texto válido de hasta 255 caracteres', 400);
       }
-      selector = { username: value.trim().toLowerCase() };
+      const user = await users.findByUsername(value.trim());
+
+if (!user || user.id === undefined) {
+  throw new AppError('Usuario no encontrado', 404);
+}
+
+selector = { id: user.id };
     } else selector = { id: req.path === '/me' ? res.locals.authUser.id : routeId(req.params.id) };
     res.json({ message: 'Perfil del usuario', data: await profiles.read(selector, res.locals.authUser?.id ?? null) });
   } catch (error) { next(error); }

@@ -10,6 +10,7 @@ import {
   remove,
   update,
   findPopularReviews,
+  findHistory,
 } from './review.controller.js';
 
 const reviewRouter = Router();
@@ -30,6 +31,7 @@ reviewRouter.get('/', findAll);
 
 reviewRouter.get('/stats', getRatingStats);
 reviewRouter.get('/popular', requireAuth, findPopularReviews);
+reviewRouter.get('/:id/history', requireAuth, findHistory);
 reviewRouter.get('/:id', findById);
 reviewRouter.post('/', requireAuth, requireMutationHeader, requireJsonBody, create);
 reviewRouter.patch('/:id', requireAuth, requireMutationHeader, requireJsonBody, update);

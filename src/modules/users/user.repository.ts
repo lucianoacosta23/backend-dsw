@@ -1,4 +1,6 @@
-import { RequestContext } from '@mikro-orm/core';
+import { LockMode, RequestContext } from '@mikro-orm/core';
+import { ProfileImage } from '../profiles/profile-image.entity.js';
+import { ImageService } from '../profiles/image.service.js';
 import { User } from './user.entity.js';
 
 export interface CreateUserInput {
@@ -107,14 +109,15 @@ export class UserRepository {
       throw new Error('No hay un contexto de base de datos activo');
     }
 
-    const user = await em.findOne(User, { id });
-
-    if (!user) {
-      return false;
-    }
-
-    await em.removeAndFlush(user);
-
+    const images = await em.transactional(async tx => {
+      const user = await tx.findOne(User, { id }, { lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true });
+      if (!user) return null;
+      const images = await tx.find(ProfileImage, { owner: id });
+      await tx.removeAndFlush(user);
+      return images.map(image => image.id!);
+    });
+    if (images === null) return false;
+    await new ImageService(em).cleanupSafely(images);
     return true;
   }
 

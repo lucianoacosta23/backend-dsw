@@ -1,7 +1,14 @@
-import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
+import { Entity, ManyToOne, PrimaryKey, Property, type Rel } from '@mikro-orm/core';
+import { ProfileImage } from '../profiles/profile-image.entity.js';
 
 @Entity()
 export class User {
+  @ManyToOne(() => ProfileImage, { nullable: true, deleteRule: 'set null' })
+  avatarImage: Rel<ProfileImage> | null = null;
+
+  @ManyToOne(() => ProfileImage, { nullable: true, deleteRule: 'set null' })
+  coverImage: Rel<ProfileImage> | null = null;
+
   @PrimaryKey({ type: 'number' })
   id?: number;
 

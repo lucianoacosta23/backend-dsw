@@ -40,7 +40,7 @@ function parsePositiveInteger(
   return number;
 }
 
-function readPagination(req: Request) {
+export function readPagination(req: Request) {
   if (
     Object.keys(req.query).some(
       key => !['page', 'pageSize'].includes(key),

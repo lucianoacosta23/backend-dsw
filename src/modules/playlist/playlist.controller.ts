@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../shared/errors/app-error.js';
 import { PlaylistRepository, type CreatePlaylistInput } from './playlist.repository.js';
 import type { User } from '../users/user.entity.js';
+import { publicPlaylist } from './playlist.response.js';
 
 const playlistRepository = new PlaylistRepository();
 
@@ -44,7 +45,7 @@ export async function findAll(
 
     res.status(200).json({
       message: 'Playlists obtenidas con éxito',
-      data: playlists,
+      data: await Promise.all(playlists.map(publicPlaylist)),
     });
   } catch (error) {
     next(error);
@@ -116,7 +117,7 @@ export async function create(
 
     res.status(201).json({
       message: 'Playlist creada',
-      data: playlist,
+      data: await publicPlaylist(playlist),
     });
   } catch (error) {
     next(error);
@@ -227,7 +228,7 @@ export async function removeTrack(
 
     res.status(200).json({
       message: 'Canción eliminada de la playlist con éxito',
-      data: playlist,
+      data: await publicPlaylist(playlist),
     });
   } catch (error) {
     next(error);
@@ -272,7 +273,7 @@ export async function update(
 
     res.status(200).json({
       message: 'Playlist actualizada con éxito',
-      data: playlist,
+      data: await publicPlaylist(playlist),
     });
   } catch (error) {
     next(error);

@@ -3,6 +3,27 @@ import type { Request, Response, NextFunction } from 'express';
 import { authRepository } from '../modules/auth/auth.repository.js';
 import { AppError } from '../shared/errors/app-error.js';
 import type { User } from '../modules/users/user.entity.js';
+import { routeId } from '../modules/profiles/profile.validation.js';
+
+export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    delete res.locals.authUser;
+    if (req.session.userId !== undefined) {
+      const user = await authRepository.findById(req.session.userId);
+      if (user) res.locals.authUser = user;
+    }
+    next();
+  } catch (error) { next(error); }
+}
+
+export function requireSelf(req: Request, res: Response, next: NextFunction): void {
+  try {
+    if (!res.locals.authUser) throw new AppError('Debe iniciar sesión', 401);
+    if (routeId(req.params.id) !== res.locals.authUser.id) throw new AppError('Solo el dueño puede editar esta cuenta', 403);
+    next();
+  } catch (error) { next(error); }
+}
 
 export async function requireAuth(
   req: Request,

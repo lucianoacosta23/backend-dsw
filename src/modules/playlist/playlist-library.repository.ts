@@ -5,7 +5,7 @@ import { User } from '../users/user.entity.js';
 import { Playlist } from './playlist.entity.js';
 import { PlaylistSave } from './playlist-save.entity.js';
 
-export type PlaylistListMode = 'mine' | 'saved' | 'popular';
+export type PlaylistListMode = 'mine' | 'saved' | 'popular' | 'author';
 
 export interface PlaylistListInput {
   page: number;
@@ -175,8 +175,9 @@ export class PlaylistLibraryRepository {
 
   async list(
     mode: PlaylistListMode,
-    viewerId: number,
+    viewerId: number | null,
     input: PlaylistListInput,
+    authorId?: number,
   ) {
     const em = this.getEntityManager();
 
@@ -185,9 +186,13 @@ export class PlaylistLibraryRepository {
     let order = 'p.id DESC';
     const filterParams: number[] = [];
 
-    if (mode === 'mine') {
+    if (mode === 'author') {
+      if (authorId === undefined) throw new Error('Falta el autor');
       condition = 'p.user_id = ?';
-      filterParams.push(viewerId);
+      filterParams.push(authorId);
+    } else if (mode === 'mine') {
+      condition = 'p.user_id = ?';
+      filterParams.push(viewerId!);
     } else if (mode === 'saved') {
       condition = `
         EXISTS (
@@ -197,7 +202,7 @@ export class PlaylistLibraryRepository {
             AND mine.user_id = ?
         )
       `;
-      filterParams.push(viewerId);
+      filterParams.push(viewerId!);
 
       order = `
         (
@@ -281,4 +286,4 @@ export class PlaylistLibraryRepository {
       })),
     };
   }
-}
+}

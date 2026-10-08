@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { serveImage } from '../modules/profiles/image.http.js';
 import { AppError } from '../shared/errors/app-error.js';
 
 import activityRouter from '../modules/activity/activity.routes.js';
@@ -20,6 +21,7 @@ import searchRouter from '../modules/search/search.routes.js';
 
 
 const router = Router();
+router.get('/media/:key', serveImage);
 
 
 router.get('/error', (req,res)=>{

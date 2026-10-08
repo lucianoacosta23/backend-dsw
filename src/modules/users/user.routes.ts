@@ -3,27 +3,34 @@ import { Router } from 'express';
 import {
   findAll,
   findById,
-  findByUsername,
-  findOwnProfile,
   update,
   remove,
 } from './user.controller.js';
 
 import {
   requireAuth,
+  optionalAuth,
+  requireSelf,
   requireAdmin,
   requireSelfOrAdmin,
   requireMutationHeader,
 } from '../../middlewares/auth.middleware.js';
 
 import { followUser, unfollowUser } from '../follows/follow.controller.js';
+import { readProfile, updateProfile, listAuthorPlaylists } from '../profiles/profile.controller.js';
+import { receiveImage, uploadImage } from '../profiles/image.http.js';
 
 const userRouter = Router();
 
+userRouter.get('/search', optionalAuth, readProfile);
+userRouter.get('/:id/profile', optionalAuth, readProfile);
+userRouter.get('/:id/playlists', optionalAuth, listAuthorPlaylists);
+
 userRouter.use(requireAuth);
 
-userRouter.get('/me', findOwnProfile);
-userRouter.get('/search', findByUsername);
+userRouter.get('/me', readProfile);
+userRouter.patch('/me/profile', requireMutationHeader, updateProfile);
+userRouter.post('/me/images', requireMutationHeader, receiveImage, uploadImage);
 userRouter.get('/', requireAdmin, findAll);
 userRouter.get('/:id', requireSelfOrAdmin, findById);
 
@@ -40,7 +47,7 @@ userRouter.delete(
 );
 userRouter.patch(
   '/:id',
-  requireSelfOrAdmin,
+  requireSelf,
   requireMutationHeader,
   update,
 );

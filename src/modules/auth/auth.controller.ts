@@ -410,7 +410,9 @@ export async function spotifyCallback(
 
     const receivedState = queryString(req.query.state);
     const expectedState = req.session.spotifyOauthState;
-    const returnUrl = req.session.spotifyReturnUrl ?? '/';
+    const returnUrl = safeLocalReturnUrl(
+      req.session.spotifyReturnUrl ?? '/dashboard',
+    );
 
     delete req.session.spotifyOauthState;
     delete req.session.spotifyReturnUrl;
@@ -451,38 +453,171 @@ export async function spotifyCallback(
     const accessToken = await client.exchangeCode(code);
     const profile = await client.getCurrentProfile(accessToken);
 
-    let user = await authRepository.findBySpotifyId(
+    const user = await authRepository.findBySpotifyId(
       profile.accountId,
     );
 
+    const frontendUrl = (
+      process.env.FRONTEND_URL ?? 'http://127.0.0.1:4200'
+    ).replace(/\/+$/, '');
+
+    await regenerateSession(req);
+
     if (!user) {
-      user = await authRepository.createSpotify({
+      // Todavía no creamos el usuario ni iniciamos sesión.
+      req.session.pendingSpotifyRegistration = {
         spotifyId: profile.accountId,
         displayName: profile.displayName,
-      });
+        returnUrl: returnUrl === '/' ? '/dashboard' : returnUrl,
+        expiresAt: Date.now() + 15 * 60 * 1000,
+      };
+
+      await saveSession(req);
+
+      res.redirect(
+        303,
+        `${frontendUrl}/register/spotify`,
+      );
+      return;
     }
 
     if (user.id === undefined) {
       throw new Error('El usuario no tiene un ID persistido');
     }
 
-    // Se inicia una sesión nueva después de autenticar al usuario.
-    await regenerateSession(req);
-
     req.session.userId = user.id;
-
     await saveSession(req);
 
-    const frontendUrl = (
-      process.env.FRONTEND_URL ?? 'http://127.0.0.1:4200'
-    ).replace(/\/+$/, '');
+    res.redirect(
+      303,
+      `${frontendUrl}${returnUrl === '/' ? '/dashboard' : returnUrl}`,
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+function requirePendingSpotifyRegistration(req: Request) {
+  const pending = req.session.pendingSpotifyRegistration;
 
-    res.redirect(303, `${frontendUrl}${returnUrl}`);
+  if (!pending || pending.expiresAt <= Date.now()) {
+    delete req.session.pendingSpotifyRegistration;
+
+    throw new AppError(
+      'El registro con Spotify venció. Volvé a entrar con Spotify.',
+      401,
+    );
+  }
+
+  return pending;
+}
+
+export async function spotifyRegistrationInfo(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+
+    const pending = requirePendingSpotifyRegistration(req);
+
+    res.status(200).json({
+      message: 'Completá tu perfil',
+      data: {
+        displayName: pending.displayName,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function completeSpotifyRegistration(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+
+    const pending = requirePendingSpotifyRegistration(req);
+    const body: unknown = req.body;
+
+    if (
+      typeof body !== 'object' ||
+      body === null ||
+      Array.isArray(body)
+    ) {
+      throw new AppError('Debe enviar un objeto JSON', 400);
+    }
+
+    const fields = body as Record<string, unknown>;
+
+    if (
+      Object.keys(fields).some(
+        key => key !== 'username' && key !== 'fullName',
+      )
+    ) {
+      throw new AppError(
+        'Solo se permiten username y fullName',
+        400,
+      );
+    }
+
+    const username = requiredText(
+      fields.username,
+      'username',
+      30,
+    ).toLowerCase();
+
+    const fullName = requiredText(fields.fullName, 'fullName');
+
+    if (!/^[a-z0-9_]{3,30}$/.test(username)) {
+      throw new AppError(
+        'El username debe tener entre 3 y 30 caracteres: letras sin acentos, números o guion bajo.',
+        400,
+      );
+    }
+
+    if (
+      await authRepository.findBySpotifyId(pending.spotifyId)
+    ) {
+      throw new AppError(
+        'Esta cuenta ya fue registrada. Volvé a iniciar sesión con Spotify.',
+        409,
+      );
+    }
+
+    if (await authRepository.usernameExists(username)) {
+      throw new AppError('Ese username ya está en uso', 409);
+    }
+
+    const user = await authRepository.createSpotify({
+      spotifyId: pending.spotifyId,
+      username,
+      fullName,
+    });
+
+    if (user.id === undefined) {
+      throw new Error('El usuario no tiene un ID persistido');
+    }
+
+    const returnUrl = pending.returnUrl;
+
+    await regenerateSession(req);
+    req.session.userId = user.id;
+    await saveSession(req);
+
+    res.status(201).json({
+      message: 'Cuenta creada correctamente',
+      data: publicUser(user),
+      returnUrl,
+    });
   } catch (error) {
     if (error instanceof UniqueConstraintViolationException) {
       next(
         new AppError(
-          'La cuenta de Spotify ya está vinculada a otro usuario',
+          'El username o la cuenta de Spotify ya están registrados.',
           409,
         ),
       );

@@ -438,7 +438,7 @@
       "checks": [
         {
           "name": "follow_no_self_follow",
-          "columnName": "follower_id",
+          "columnName": "followed_id",
           "definition": "CHECK ((follower_id <> followed_id))",
           "expression": "follower_id <> followed_id"
         }

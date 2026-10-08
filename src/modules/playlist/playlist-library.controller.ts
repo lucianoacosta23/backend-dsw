@@ -96,6 +96,32 @@ export const findMyPlaylists = listHandler('mine');
 export const findSavedPlaylists = listHandler('saved');
 export const findPopularPlaylists = listHandler('popular');
 
+export async function findPlaylistDetail(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const userId = getUserId(res);
+    const playlistId = parsePositiveInteger(
+      req.params.id,
+      'El ID de la playlist',
+      2147483647,
+    );
+
+    const playlist = await repository.findDetail(playlistId, userId);
+
+    res.setHeader('Cache-Control', 'no-store');
+
+    res.status(200).json({
+      message: 'Playlist obtenida con éxito',
+      data: playlist,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function savePlaylist(
   req: Request,
   res: Response,

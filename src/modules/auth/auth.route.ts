@@ -6,10 +6,13 @@ import {
   me,
   logout,
   spotifyLogin,
-  spotifyCallback,
+  spotifyCallback,spotifyRegistrationInfo,
+completeSpotifyRegistration,
 } from './auth.controller.js';
 import { AppError } from '../../shared/errors/app-error.js';
-
+import {
+  requireMutationHeader,
+} from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -32,5 +35,16 @@ router.get('/me', me);
 router.post('/logout', requireJson, logout);
 router.get('/spotify/login', spotifyLogin);
 router.get('/spotify/callback', spotifyCallback);
+router.get(
+  '/spotify/registration',
+  spotifyRegistrationInfo,
+);
+
+router.post(
+  '/spotify/registration',
+  requireJson,
+  requireMutationHeader,
+  completeSpotifyRegistration,
+);
 
 export default router;

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { serveImage } from '../modules/profiles/image.http.js';
 import { AppError } from '../shared/errors/app-error.js';
 
-
+import activityRouter from '../modules/activity/activity.routes.js';
 import spotifyCatalogRouter from '../modules/spotify/spotify-catalog.route.js';
 import userRoutes from '../modules/users/user.routes.js';
 import artistRouter from '../modules/artists/artist.route.js';
@@ -56,4 +56,5 @@ router.use('/auth', authRouter);
 router.use('/admin/reports', adminReportRouter);
 router.use('/playlist', playlistRouter)
 router.use('/search', searchRouter);
+router.use('/activity', activityRouter);
 export default router;

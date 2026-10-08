@@ -1,6 +1,7 @@
 import { LockMode, RequestContext } from '@mikro-orm/core';
 import type { FilterQuery } from '@mikro-orm/core';
 
+import { ReviewRevision } from './review-revision.entity.js';
 import { ReviewLike } from '../likes/like.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { User } from '../users/user.entity.js';
@@ -319,32 +320,81 @@ export class ReviewRepository {
     return review;
   }
 
-  async updateText(
-    id: number,
-    text: string,
-    actor: ReviewActor,
-  ): Promise<Review> {
-    return this.getEntityManager().transactional(async tx => {
-      const review = await tx.findOne(
-        Review,
-        { id, deletedAt: null },
-        { lockMode: LockMode.PESSIMISTIC_WRITE },
-      );
+async updateText(
+  id: number,
+  text: string,
+  actor: ReviewActor,
+): Promise<Review> {
+  return this.getEntityManager().transactional(async tx => {
+    const review = await tx.findOne(
+      Review,
+      { id, deletedAt: null },
+      {
+        lockMode: LockMode.PESSIMISTIC_WRITE,
+        refresh: true,
+      },
+    );
 
-      if (!review) throw new AppError('Reseña no encontrada', 404);
+    if (!review) {
+      throw new AppError('Reseña no encontrada', 404);
+    }
 
-      // El reloj se consulta después de obtener el bloqueo.
-      const now = this.now();
-      assertCanEditReview(review, actor, now);
+    const now = this.now();
+
+    assertCanEditReview(review, actor, now);
+
+    if (review.text !== text) {
+      const revision = tx.create(ReviewRevision, {
+        review,
+        text: review.text,
+        effectiveAt: review.editedAt ?? review.createdAt,
+        replacedAt: now,
+      });
+
+      tx.persist(revision);
+
       review.text = text;
       review.editedAt = now;
 
       await tx.flush();
-      await tx.populate(review, ['author']);
+    }
 
-      return review;
-    });
+    await tx.populate(review, ['author']);
+
+    return review;
+  });
+}
+async findHistory(
+  reviewId: number,
+  page: number,
+  pageSize: number,
+) {
+  const em = this.getEntityManager();
+
+  const review = await em.findOne(Review, {
+    id: reviewId,
+    deletedAt: null,
+  });
+
+  if (!review) {
+    throw new AppError('Reseña no encontrada', 404);
   }
+
+  const [items, total] = await em.findAndCount(
+    ReviewRevision,
+    { review: reviewId },
+    {
+      orderBy: {
+        replacedAt: 'DESC',
+        id: 'DESC',
+      },
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    },
+  );
+
+  return { items, total };
+}
 
   async delete(id: number, actor: ReviewActor): Promise<void> {
     await this.getEntityManager().transactional(async tx => {

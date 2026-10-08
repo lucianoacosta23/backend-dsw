@@ -1,4 +1,6 @@
 import 'dotenv/config';
+
+import { ReviewRevision } from '../modules/reviews/review-revision.entity.js';
 import { ProfileImage } from '../modules/profiles/profile-image.entity.js';
 import { UserFavoriteRelease } from '../modules/profiles/user-favorite-release.entity.js';
 import { UserFavoriteTrack } from '../modules/profiles/user-favorite-track.entity.js';
@@ -31,7 +33,7 @@ const dbConfig = {
 
 export default defineConfig({
 
-  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow, ReviewLike, ReviewReport, Playlist, PlaylistSave, ProfileImage, UserFavoriteRelease, UserFavoriteTrack],
+  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow, ReviewLike, ReviewReport, Playlist, PlaylistSave, ProfileImage, UserFavoriteRelease, UserFavoriteTrack, ReviewRevision],
 
   extensions: [Migrator],
   ...dbConfig,

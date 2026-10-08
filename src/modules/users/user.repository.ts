@@ -89,15 +89,36 @@ export class UserRepository {
   }
 
   //esta funcion compra que un nombre de ususuario sea igual a otro 
-  async findByUsername(username: string): Promise<User | null> {
-    const em = RequestContext.getEntityManager();
+ async findByUsername(username: string): Promise<User | null> {
+  const em = RequestContext.getEntityManager();
 
-    if (!em) {
-      throw new Error('No hay un contexto de base de datos activo');
-    }
-
-    return em.findOne(User, { username: username.trim().toLowerCase() });
+  if (!em) {
+    throw new Error('No hay un contexto de base de datos activo');
   }
+
+  // Compara el nombre completo sin distinguir mayúsculas.
+  // El parámetro evita interpolar datos del usuario en el SQL.
+  const rows: Array<{ id: number }> = await em
+    .getConnection()
+    .execute(
+      `
+        SELECT id
+        FROM "user"
+        WHERE LOWER(username) = LOWER(?)
+        ORDER BY id ASC
+        LIMIT 1
+      `,
+      [username.trim()],
+    );
+
+  const match = rows[0];
+
+  if (!match) {
+    return null;
+  }
+
+  return em.findOne(User, { id: match.id });
+}
 
 
   async delete(id: number): Promise<boolean> {

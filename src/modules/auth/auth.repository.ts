@@ -10,7 +10,8 @@ interface CreateLocalUserData {
 }
 interface CreateSpotifyUserData {
   spotifyId: string;
-  displayName: string | null;
+  username: string;
+  fullName: string;
 }
 
 function getEntityManager() {
@@ -58,13 +59,10 @@ async function createSpotify(
 ): Promise<User> {
   const em = getEntityManager();
 
-  const fallbackName = `spotify_${data.spotifyId}`.slice(0, 255);
-  const name = data.displayName ?? fallbackName;
-
   const user = new User();
-  
-  user.username = fallbackName.toLowerCase();
-user.fullName = name;
+
+  user.username = data.username.trim().toLowerCase();
+  user.fullName = data.fullName.trim();
   user.email = null;
   user.passwordHash = null;
   user.spotifyId = data.spotifyId;
@@ -75,10 +73,26 @@ user.fullName = name;
 
   return user;
 }
+async function usernameExists(username: string): Promise<boolean> {
+  const rows: Array<{ id: number }> = await getEntityManager()
+    .getConnection()
+    .execute(
+      `
+        SELECT id
+        FROM "user"
+        WHERE LOWER(username) = LOWER(?)
+        LIMIT 1
+      `,
+      [username.trim()],
+    );
+
+  return rows.length > 0;
+}
 export const authRepository = {
   findByEmail,
   findById,
   findBySpotifyId,
   createLocal,
   createSpotify,
+  usernameExists
 };

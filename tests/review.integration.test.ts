@@ -19,6 +19,7 @@ import { User } from '../src/modules/users/user.entity.js';
 import { Release, ReleaseDatePrecision, ReleaseType } from '../src/modules/releases/release.entity.js';
 import { Review } from '../src/modules/reviews/review.entity.js';
 import { ReviewRepository } from '../src/modules/reviews/review.repository.js';
+import { ReviewReport } from '../src/modules/reports/report.entity.js';
 import { REVIEW_EDIT_WINDOW_MS } from '../src/modules/reviews/review.rules.js';
 
 // Base nueva por ejecución. Nunca se migran ni se limpian bases existentes.
@@ -167,6 +168,131 @@ describe('Review con PostgreSQL, migraciones, rutas y sesiones reales', { concur
         }
       }
     }
+  });
+
+  test('reseñas críticas: umbral, permisos, descarte, baja y decisiones concurrentes', async () => {
+    const author = await newUser();
+    const moderator = await newUser('ADMIN');
+    const reporters = await Promise.all([newUser(), newUser(), newUser(), newUser()]);
+    const release = await newRelease();
+    const minor = await createReview(author.cookie, release.id);
+    const unreported = await createReview(author.cookie, release.id);
+    const critical = await createReview(author.cookie, release.id);
+    const removed = await createReview(author.cookie, release.id);
+
+    for (const [review, count] of [[minor, 2], [critical, 3], [removed, 4]] as const) {
+      for (const reporter of reporters.slice(0, count)) {
+        const response = await request(`/reviews/${review.id}/reports`, {
+          method: 'POST', cookie: reporter.cookie, body: { reason: 'SPAM' },
+        });
+        assert.equal(response.status, 201, await response.clone().text());
+      }
+    }
+
+    const criticalIds = async () => {
+      const response = await request('/admin/reports/critical', { cookie: moderator.cookie });
+      assert.equal(response.status, 200, await response.clone().text());
+      return (await response.json()).data as Array<{
+        id: number; reportCount: number; author: { id: number; username: string };
+      }>;
+    };
+    await expectError(await request('/admin/reports/critical'), 401);
+    await expectError(await request('/admin/reports/critical', { cookie: author.cookie }), 403);
+    const list = await criticalIds();
+    const reportsPath = `/admin/reports/${critical.id}/reviewreport`;
+    await expectError(await request(reportsPath), 401);
+    await expectError(await request(reportsPath, { cookie: author.cookie }), 403);
+    await expectError(await request('/admin/reports/invalid/reviewreport', { cookie: moderator.cookie }), 400);
+    await expectError(await request('/admin/reports/2147483647/reviewreport', { cookie: moderator.cookie }), 404);
+    const reportDetails = await request(reportsPath, { cookie: moderator.cookie });
+    assert.equal(reportDetails.status, 200);
+    const detailRows = (await reportDetails.json()).data;
+    assert.equal(detailRows.length, 3);
+    for (const row of detailRows) {
+      assert.deepEqual(Object.keys(row).sort(), ['createdAt', 'details', 'id', 'reason', 'reporter', 'status']);
+      assert.deepEqual(Object.keys(row.reporter).sort(), ['id', 'username']);
+      assert.equal(row.status, 'PENDING');
+      assert.equal(row.reason, 'SPAM');
+    }
+    const emptyDetails = await request(`/admin/reports/${unreported.id}/reviewreport`, { cookie: moderator.cookie });
+    assert.equal(emptyDetails.status, 200);
+    assert.deepEqual((await emptyDetails.json()).data, []);
+    const minorIds = async () => {
+      const response = await request('/admin/reports/minor', { cookie: moderator.cookie });
+      assert.equal(response.status, 200, await response.clone().text());
+      return (await response.json()).data as Array<{ id: number; reportCount: number }>;
+    };
+    await expectError(await request('/admin/reports/minor'), 401);
+    await expectError(await request('/admin/reports/minor', { cookie: author.cookie }), 403);
+    const minorList = await minorIds();
+    assert.equal(minorList.find(review => review.id === minor.id)?.reportCount, 2);
+    assert.ok(!minorList.some(review => [unreported.id, critical.id, removed.id].includes(review.id)));
+    assert.ok(!list.some(review => review.id === minor.id));
+    assert.equal(list.find(review => review.id === critical.id)?.reportCount, 3);
+    assert.equal(list.find(review => review.id === removed.id)?.reportCount, 4);
+    assert.deepEqual(list.find(review => review.id === critical.id)?.author, {
+      id: author.user.id, username: author.user.username,
+    });
+
+    const moderate = (id: number, decision: string, cookie = moderator.cookie, header = true) =>
+      request(`/admin/reports/${id}/reviewreport`, {
+        method: 'PATCH', cookie, header, body: { decision },
+      });
+    await expectError(await moderate(critical.id, 'DISMISS', author.cookie), 403);
+    await expectError(await moderate(critical.id, 'DISMISS', moderator.cookie, false), 403);
+    await expectError(await moderate(critical.id, 'INVALID'), 400);
+
+    const dismissed = await moderate(critical.id, 'DISMISS');
+    assert.equal(dismissed.status, 200);
+    assert.equal((await dismissed.json()).data.affectedReports, 3);
+    const history = await request(reportsPath, { cookie: moderator.cookie });
+    assert.equal(history.status, 200);
+    assert.ok((await history.json()).data.every((report: { status: string }) => report.status === 'DISMISSED'));
+    assert.equal((await persisted(critical.id)).deletedAt, null);
+    assert.ok(!(await criticalIds()).some(review => review.id === critical.id));
+    await expectError(await moderate(critical.id, 'REMOVE_REVIEW'), 409);
+    assert.ok(!(await minorIds()).some(review => review.id === critical.id));
+    assert.equal((await persisted(critical.id)).deletedAt, null);
+
+    // Dos decisiones simultáneas: una sola puede resolver los reportes.
+    const decisions = await Promise.all([
+      moderate(removed.id, 'REMOVE_REVIEW'), moderate(removed.id, 'REMOVE_REVIEW'),
+    ]);
+    assert.deepEqual(decisions.map(response => response.status).sort(), [200, 409]);
+    assert.ok((await persisted(removed.id)).deletedAt instanceof Date);
+    assert.ok(!(await criticalIds()).some(review => review.id === removed.id));
+    await expectError(await request(`/reviews/${removed.id}`, { cookie: author.cookie }), 404);
+
+    for (const [review, status, count] of [[critical, 'DISMISSED', 3], [removed, 'ACTIONED', 4]] as const) {
+      const reports = await database().em.fork().find(ReviewReport, { review: review.id });
+      assert.equal(reports.length, count);
+      for (const report of reports) {
+        assert.equal(report.status, status);
+        assert.equal(report.moderatedBy?.id, moderator.user.id);
+        assert.ok(report.moderatedAt instanceof Date);
+      }
+    }
+
+    // Los descartados no se suman a un nuevo reporte pendiente.
+    const newReport = await request(`/reviews/${critical.id}/reports`, {
+      method: 'POST', cookie: reporters[3]!.cookie, body: { reason: 'SPAM' },
+    });
+    assert.equal(newReport.status, 201);
+    assert.ok(!(await criticalIds()).some(review => review.id === critical.id));
+    assert.equal((await minorIds()).find(review => review.id === critical.id)?.reportCount, 1);
+    assert.ok(!(await minorIds()).some(review => review.id === removed.id));
+
+    const minorDismissed = await moderate(minor.id, 'DISMISS');
+    assert.equal(minorDismissed.status, 200);
+    assert.equal((await minorDismissed.json()).data.affectedReports, 2);
+    assert.equal((await persisted(minor.id)).deletedAt, null);
+    assert.ok(!(await minorIds()).some(review => review.id === minor.id));
+
+    const minorRemoved = await moderate(critical.id, 'REMOVE_REVIEW');
+    assert.equal(minorRemoved.status, 200);
+    assert.equal((await minorRemoved.json()).data.affectedReports, 1);
+    assert.ok((await persisted(critical.id)).deletedAt instanceof Date);
+    assert.ok(!(await minorIds()).some(review => review.id === critical.id));
   });
 
   test('crea varias reseñas por pareja, toda la escala y respuestas públicas sin datos sensibles', async () => {

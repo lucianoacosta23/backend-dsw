@@ -129,6 +129,8 @@ export async function listReports(
   }
 }
 
+
+//Esta funcion permite modificar el estado de un reporte puntual
 export async function moderateReport(
   req: Request,
   res: Response,
@@ -150,6 +152,86 @@ export async function moderateReport(
           ? 'Reporte descartado'
           : 'Reseña dada de baja y reportes pendientes resueltos',
       data: adminReportResponse(report),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+
+//filtramos las las reviews por mas de 3 repotes como reviews criticas 
+export async function getCriticalReviews(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    // Llamamos al método del repositorio que creamos antes para buscar las reseñas con >= 3 reportes
+    const criticalReviews = await repository.findCriticalReviews();
+
+    res.status(200).json({
+      message: 'Reseñas críticas obtenidas exitosamente',
+      data: criticalReviews,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+//Con esta funcion, todos los reportes especificos de una review para cambiarle el estado de los mismos 
+export async function getMinorReviews(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    res.status(200).json({
+      message: 'Reseñas con reportes menores obtenidas exitosamente',
+      data: await repository.findMinorReviews(),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getReviewReports(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const reviewId = parseReviewId(req.params.reviewId);
+    res.status(200).json({
+      message: 'Reportes de la reseña',
+      data: await repository.findByReview(reviewId),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function moderateReviewReports(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const reviewId = parseReviewId(req.params.reviewId); // O el parser que uses para el ID de reseña
+    const input = parseModerateReport(req.body);
+
+    // Creamos/adaptamos este método en el repositorio para procesar por reviewId
+    const result = await repository.moderateByReview(
+      reviewId,
+      authUserId(res),
+      input.decision,
+    );
+
+    res.status(200).json({
+      message:
+        input.decision === 'DISMISS'
+          ? 'Reportes de la reseña descartados'
+          : 'Reseña dada de baja y reportes resueltos',
+      data: result,
     });
   } catch (error) {
     next(error);

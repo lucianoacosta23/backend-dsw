@@ -1572,7 +1572,7 @@
       "checks": [
         {
           "name": "review_exactly_one_target_check",
-          "columnName": "release_id",
+          "columnName": "track_id",
           "definition": "CHECK (((release_id IS NOT NULL) <> (track_id IS NOT NULL)))",
           "expression": "(release_id IS NOT NULL) <> (track_id IS NOT NULL)"
         },

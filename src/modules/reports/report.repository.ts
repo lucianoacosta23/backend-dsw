@@ -75,6 +75,69 @@ export class ReviewReportRepository {
     });
   }
 
+  async findByReview(reviewId: number) {
+    const em = this.getEntityManager();
+    if (!await em.findOne(Review, { id: reviewId })) {
+      throw new AppError('Reseña no encontrada', 404);
+    }
+    const reports = await em.find(ReviewReport, { review: reviewId }, {
+      populate: ['reporter'],
+      orderBy: { createdAt: 'asc', id: 'asc' },
+    });
+    return reports.map(report => ({
+      id: report.id,
+      reason: report.reason,
+      details: report.details,
+      status: report.status,
+      createdAt: report.createdAt,
+      reporter: { id: report.reporter.id, username: report.reporter.username },
+    }));
+  }
+
+  // Obtiene las reseñas críticas que tienen 3 o más reportes pendientes
+  async findCriticalReviews() {
+    return this.findReviewsByPendingReports(3);
+  }
+
+  // Solo reseñas con uno o dos reportes pendientes.
+  async findMinorReviews() {
+    return this.findReviewsByPendingReports(1, 2);
+  }
+
+  private async findReviewsByPendingReports(minimum: number, maximum?: number) {
+    const em = this.getEntityManager();
+
+    // Una sola consulta mantiene el contador y la visibilidad en la misma lectura.
+    // Seleccionamos únicamente los datos que necesita la pantalla de moderación.
+    const rows: Array<{
+      id: number;
+      author_id: number;
+      username: string;
+      text: string | null;
+      rating: string | number;
+      report_count: string | number;
+    }> = await em.getConnection().execute(
+      `SELECT r.id, r.author_id, u.username, r.text, r.rating,
+              COUNT(rr.id) AS report_count
+       FROM review r
+       JOIN "user" u ON u.id = r.author_id
+       JOIN review_report rr ON rr.review_id = r.id
+       WHERE r.deleted_at IS NULL AND rr.status = ?
+       GROUP BY r.id, u.id
+       HAVING COUNT(rr.id) >= ? ${maximum === undefined ? '' : 'AND COUNT(rr.id) <= ?'}
+       ORDER BY COUNT(rr.id) DESC, r.id ASC`,
+      maximum === undefined ? ['PENDING', minimum] : ['PENDING', minimum, maximum],
+    );
+
+    return rows.map(row => ({
+      id: row.id,
+      author: { id: row.author_id, username: row.username },
+      text: row.text,
+      rating: Number(row.rating),
+      reportCount: Number(row.report_count),
+    }));
+  }
+
   // Aplica la decisión del admin dentro de una transacción.
   async moderate(
     reportId: number,
@@ -163,5 +226,63 @@ export class ReviewReportRepository {
 
       return report;
     });
+  }
+
+  // Modera todos los reportes pendientes de una reseña en una transacción.
+  async moderateByReview(
+  reviewId: number,
+  moderatorId: number,
+  decision: ReportDecision,
+  ) {
+  return this.getEntityManager().transactional(async tx => {
+    const review = await tx.findOne(
+      Review,
+      { id: reviewId },
+      { lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true },
+    );
+
+    if (!review) {
+      throw new AppError('Reseña no encontrada', 404);
+    }
+
+    if (review.deletedAt !== null) {
+      throw new AppError('La reseña ya fue dada de baja. Actualizá el listado.', 409);
+    }
+
+    const moderatedAt = this.now();
+    const moderator = tx.getReference(User, moderatorId);
+
+    // Buscamos todos los reportes PENDIENTES de esta reseña
+    const pendingReports = await tx.find(ReviewReport, {
+      review: reviewId,
+      status: 'PENDING',
+    });
+
+    if (pendingReports.length === 0) {
+      throw new AppError('La reseña ya no tiene reportes pendientes. Actualizá el listado.', 409);
+    }
+
+    if (decision === 'DISMISS') {
+      // Descartamos todos los reportes pendientes de esta reseña
+      for (const report of pendingReports) {
+        report.status = 'DISMISSED';
+        report.moderatedBy = moderator;
+        report.moderatedAt = moderatedAt;
+      }
+    } else {
+      // Damos de baja la reseña
+      review.deletedAt ??= moderatedAt;
+
+      // Accionamos todos los reportes pendientes
+      for (const report of pendingReports) {
+        report.status = 'ACTIONED';
+        report.moderatedBy = moderator;
+        report.moderatedAt = moderatedAt;
+      }
+    }
+
+    await tx.flush();
+    return { reviewId, affectedReports: pendingReports.length };
+  });
   }
 }

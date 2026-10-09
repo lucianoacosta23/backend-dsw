@@ -265,6 +265,76 @@ export class SpotifyClient {
     return artist;
   }
 
+  // Consulta una página de la discografía sin importar los releases.
+  async getArtistReleases(artistId: string, offset = 0): Promise<{
+    items: Array<{
+      spotifyId: string;
+      name: string;
+      type: 'ALBUM' | 'SINGLE' | 'COMPILATION';
+      imageUrl: string | null;
+      releaseDate: string;
+    }>;
+    total: number;
+    nextOffset: number | null;
+  }> {
+    if (!/^[a-zA-Z0-9]{22}$/.test(artistId)) {
+      throw new Error('El ID de artista de Spotify no es válido');
+    }
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000) {
+      throw new Error('El desplazamiento de Spotify no es válido');
+    }
+    const params = new URLSearchParams({
+      include_groups: 'album,single,compilation',
+      market: 'AR', limit: '10', offset: String(offset),
+    });
+    const page = asObject(await this.getJson(
+      `https://api.spotify.com/v1/artists/${artistId}/albums?${params}`,
+    ), 'discografía');
+    if (!Array.isArray(page.items) || typeof page.total !== 'number'
+      || !Number.isSafeInteger(page.total) || page.total < 0
+      || page.offset !== offset || (page.next !== null && typeof page.next !== 'string')) {
+      throw new Error('Spotify devolvió una paginación de releases inválida');
+    }
+    const items = page.items.filter(item => item !== null).map(value => {
+      const album = asObject(value, 'release del artista');
+      if (typeof album.id !== 'string' || !/^[a-zA-Z0-9]{22}$/.test(album.id)
+        || typeof album.name !== 'string' || typeof album.release_date !== 'string'
+        || !/^[0-9]{4}(-[0-9]{2}){0,2}$/.test(album.release_date)
+        || !Array.isArray(album.images)) {
+        throw new Error('Spotify devolvió un release inválido');
+      }
+      let type: 'ALBUM' | 'SINGLE' | 'COMPILATION';
+      switch (album.album_type) {
+        case 'album': type = 'ALBUM'; break;
+        case 'single': type = 'SINGLE'; break;
+        case 'compilation': type = 'COMPILATION'; break;
+        default: throw new Error('Spotify devolvió un tipo de release inválido');
+      }
+      const image = album.images.length ? asObject(album.images[0], 'portada') : null;
+      return {
+        spotifyId: album.id, name: album.name, type,
+        imageUrl: image && typeof image.url === 'string' ? image.url : null,
+        releaseDate: album.release_date,
+      };
+    });
+    // No aceptamos una URL de paginación del navegador ni seguimos URLs arbitrarias.
+    let nextOffset: number | null = null;
+    if (page.next !== null) {
+      const next = new URL(page.next as string);
+      const rawOffset = next.searchParams.get('offset');
+      if (next.origin !== 'https://api.spotify.com'
+        || next.pathname !== `/v1/artists/${artistId}/albums`
+        || !rawOffset || !/^[0-9]+$/.test(rawOffset)) {
+        throw new Error('Spotify devolvió una página siguiente inválida');
+      }
+      nextOffset = Number(rawOffset);
+      if (!Number.isSafeInteger(nextOffset) || nextOffset <= offset || nextOffset > 100000) {
+        throw new Error('Spotify devolvió un desplazamiento inválido');
+      }
+    }
+    return { items, total: page.total, nextOffset };
+  }
+
   async getAlbumWithTracks(albumId: string): Promise<{
     album: Record<string, unknown>;
     tracks: unknown[];

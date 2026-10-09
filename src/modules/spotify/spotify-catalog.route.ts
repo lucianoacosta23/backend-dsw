@@ -7,6 +7,7 @@ import {
 
 import {
   searchSpotify,
+  getArtistReleases,
   importSelectedAlbum,
   importSelectedTrack,
   importSelectedArtist,
@@ -19,6 +20,7 @@ spotifyCatalogRouter.use(requireAuth);
 
 // Buscar consulta Spotify sin guardar los resultados.
 spotifyCatalogRouter.get('/search', searchSpotify);
+spotifyCatalogRouter.get('/artists/:spotifyId/releases', getArtistReleases);
 
 // Importar modifica el catálogo: requiere el header de mutaciones.
 spotifyCatalogRouter.post(

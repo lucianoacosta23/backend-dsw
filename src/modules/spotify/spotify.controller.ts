@@ -322,3 +322,26 @@ export async function importSelectedArtist(
     handleSelectedResourceError(error, res, next);
   }
 }
+export async function getArtistReleases(
+  req: Request, res: Response, next: NextFunction,
+): Promise<void> {
+  try {
+    const spotifyId = req.params.spotifyId;
+    if (typeof spotifyId !== 'string' || !/^[a-zA-Z0-9]{22}$/.test(spotifyId)) {
+      throw new AppError('El ID del artista debe tener 22 caracteres alfanuméricos', 400);
+    }
+    if (Object.keys(req.query).some(key => key !== 'offset')) {
+      throw new AppError('Solo se permite offset', 400);
+    }
+    const rawOffset = req.query.offset ?? '0';
+    if (typeof rawOffset !== 'string' || !/^[0-9]+$/.test(rawOffset)
+      || !Number.isSafeInteger(Number(rawOffset)) || Number(rawOffset) > 100000) {
+      throw new AppError('offset debe ser un entero entre 0 y 100000', 400);
+    }
+    const result = await getSpotifyClient().getArtistReleases(spotifyId, Number(rawOffset));
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json({ message: 'Discografía de Spotify', data: result });
+  } catch (error) {
+    handleSelectedResourceError(error, res, next);
+  }
+}

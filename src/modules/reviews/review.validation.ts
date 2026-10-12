@@ -1,7 +1,7 @@
 import { AppError } from '../../shared/errors/app-error.js';
 
 const MAX_ID = 2147483647;
-export type ReviewSort = 'newest' | 'popular';
+export type ReviewSort = 'newest' | 'popular' | 'oldest';
 export interface CreateReviewInput {
   // El validador exige que se envíe exactamente uno de estos destinos.
   releaseId?: number;
@@ -28,11 +28,11 @@ export function parseReviewId(value: unknown): number {
 }
 
 function parseReviewSort(value: unknown): ReviewSort {
-  if (value === 'newest' || value === 'popular') {
+  if (value === 'newest' || value === 'popular' || value === 'oldest') {
     return value;
   }
 
-  throw new AppError('sort debe ser newest o popular', 400);
+  throw new AppError('sort debe ser newest, popular u oldest', 400);
 }
 
 function positiveInteger(value: unknown, field: string, max = MAX_ID): number {

@@ -16,6 +16,7 @@ import {
 
 import {
   findMyPlaylists,
+  findMyPlaylistTargets,
   findSavedPlaylists,
   findPopularPlaylists,
   findPlaylistDetail,
@@ -30,6 +31,7 @@ playlistRouter.use(requireAuth);
 
 // Consultas: no requieren el header de mutaciones.
 playlistRouter.get('/mine', findMyPlaylists);
+playlistRouter.get('/mine/targets', findMyPlaylistTargets);
 playlistRouter.get('/saved', findSavedPlaylists);
 playlistRouter.get('/popular', findPopularPlaylists);
 playlistRouter.get('/', findAll);
@@ -68,4 +70,4 @@ playlistRouter.delete(
 playlistRouter.patch('/:id', requireMutationHeader, update);
 playlistRouter.delete('/:id', requireMutationHeader, remove);
 
-export default playlistRouter;
+export default playlistRouter;

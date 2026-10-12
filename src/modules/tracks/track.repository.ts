@@ -229,4 +229,88 @@ async findPopularTracks(
       : [];
   });
 }
+
+  async findTopTracksByArtist(
+    artistId: number,
+    limit = 5,
+  ): Promise<Array<{
+    id: number;
+    name: string;
+    durationMs: number;
+    explicit: boolean;
+    spotifyId: string | null;
+    release: {
+      id: number;
+      name: string;
+      imageUrl: string | null;
+    };
+    reviewCount: number;
+    averageRating: number | null;
+  }>> {
+    const em = this.getEntityManager();
+
+    const rows: Array<{
+      id: number;
+      reviewCount: number;
+      averageRating: number;
+    }> = await em.getConnection().execute(
+      `select t."id" as "id",
+              count(rv."id")::int as "reviewCount",
+              coalesce(round(avg(rv."rating")::numeric, 2), 0)::float as "averageRating"
+       from "track" t
+       left join "review" rv
+         on rv."track_id" = t."id" and rv."deleted_at" is null
+       where t."id" in (
+         select ta."track_id" from "track_artists" ta where ta."artist_id" = ?
+         union
+         select tr."id" from "track" tr
+         inner join "release_artists" ra on ra."release_id" = tr."release_id"
+         where ra."artist_id" = ?
+       )
+       group by t."id"
+       order by
+         count(rv."id") > 0 desc,
+         coalesce(avg(rv."rating"), 0) desc,
+         count(rv."id") desc,
+         t."name" asc,
+         t."id" asc
+       limit ?`,
+      [artistId, artistId, limit],
+    );
+
+    if (rows.length === 0) return [];
+
+    const tracks = await em.find(
+      Track,
+      { id: { $in: rows.map(row => Number(row.id)) } },
+      { populate: ['release'] },
+    );
+
+    const tracksById = new Map(
+      tracks.flatMap(track =>
+        track.id === undefined ? [] : [[track.id, track] as const],
+      ),
+    );
+
+    return rows.flatMap(row => {
+      const track = tracksById.get(Number(row.id));
+      if (!track || track.id === undefined) return [];
+
+      const reviewCount = Number(row.reviewCount);
+      return [{
+        id: track.id,
+        name: track.name,
+        durationMs: track.durationMs,
+        explicit: track.explicit,
+        spotifyId: track.spotifyId,
+        release: {
+          id: track.release.id!,
+          name: track.release.name,
+          imageUrl: track.release.imageUrl,
+        },
+        reviewCount,
+        averageRating: reviewCount > 0 ? Number(row.averageRating) : null,
+      }];
+    });
+  }
 }

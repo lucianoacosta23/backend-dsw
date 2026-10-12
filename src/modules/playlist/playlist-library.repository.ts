@@ -1,11 +1,19 @@
 import { LockMode, RequestContext } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
+<<<<<<< Updated upstream
+=======
+import { Track } from '../tracks/track.entity.js';
+>>>>>>> Stashed changes
 import { User } from '../users/user.entity.js';
 import { Playlist } from './playlist.entity.js';
 import { PlaylistSave } from './playlist-save.entity.js';
 
+<<<<<<< Updated upstream
 export type PlaylistListMode = 'mine' | 'saved' | 'popular' | 'author';
+=======
+export type PlaylistListMode = 'mine' | 'saved' | 'popular';
+>>>>>>> Stashed changes
 
 export interface PlaylistListInput {
   page: number;
@@ -116,6 +124,36 @@ export class PlaylistLibraryRepository {
     });
   }
 
+<<<<<<< Updated upstream
+=======
+  async findTargets(userId: number, trackId: number) {
+    const em = this.getEntityManager();
+
+    const track = await em.findOne(Track, { id: trackId });
+
+    if (!track) {
+      throw new AppError('Canción no encontrada', 404);
+    }
+
+    const playlists = await em.find(
+      Playlist,
+      { user: userId },
+      {
+        populate: ['tracks'],
+        orderBy: { name: 'ASC' },
+      },
+    );
+
+    return playlists.map(playlist => ({
+      id: playlist.id,
+      name: playlist.name,
+      containsTrack: playlist.tracks
+        .getItems()
+        .some(item => item.id === trackId),
+    }));
+  }
+
+>>>>>>> Stashed changes
   // Devuelve una playlist con sus canciones para la vista de detalle.
   async findDetail(playlistId: number, viewerId: number) {
     const em = this.getEntityManager();
@@ -175,9 +213,14 @@ export class PlaylistLibraryRepository {
 
   async list(
     mode: PlaylistListMode,
+<<<<<<< Updated upstream
     viewerId: number | null,
     input: PlaylistListInput,
     authorId?: number,
+=======
+    viewerId: number,
+    input: PlaylistListInput,
+>>>>>>> Stashed changes
   ) {
     const em = this.getEntityManager();
 
@@ -186,6 +229,7 @@ export class PlaylistLibraryRepository {
     let order = 'p.id DESC';
     const filterParams: number[] = [];
 
+<<<<<<< Updated upstream
     if (mode === 'author') {
       if (authorId === undefined) throw new Error('Falta el autor');
       condition = 'p.user_id = ?';
@@ -193,6 +237,11 @@ export class PlaylistLibraryRepository {
     } else if (mode === 'mine') {
       condition = 'p.user_id = ?';
       filterParams.push(viewerId!);
+=======
+    if (mode === 'mine') {
+      condition = 'p.user_id = ?';
+      filterParams.push(viewerId);
+>>>>>>> Stashed changes
     } else if (mode === 'saved') {
       condition = `
         EXISTS (
@@ -202,7 +251,11 @@ export class PlaylistLibraryRepository {
             AND mine.user_id = ?
         )
       `;
+<<<<<<< Updated upstream
       filterParams.push(viewerId!);
+=======
+      filterParams.push(viewerId);
+>>>>>>> Stashed changes
 
       order = `
         (

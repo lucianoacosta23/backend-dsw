@@ -3,12 +3,15 @@ import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../shared/errors/app-error.js';
 import { ArtistRepository } from './artist.repository.js';
 import type { UpdateArtistInput } from './artist.repository.js';
+import { TrackRepository } from '../tracks/track.repository.js';
+import { getSpotifyClient } from '../spotify/spotify.controller.js';
 import {
   DriverException,
   ForeignKeyConstraintViolationException,
 } from '@mikro-orm/core';
 
 const artistRepository = new ArtistRepository();
+const trackRepository = new TrackRepository();
 
 function parseId(value: unknown): number {
   if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
@@ -131,15 +134,87 @@ export async function findById(
 ): Promise<void> {
   try {
     const id = parseId(req.params.id);
+    let artist = await artistRepository.findById(id);
+
+    if (!artist) {
+      throw new AppError('Artista no encontrado', 404);
+    }
+
+    // Si el artista no tiene imagen, la consultamos en Spotify y la guardamos.
+    if (!artist.imageUrl) {
+      try {
+        const client = getSpotifyClient();
+        let imageUrl: string | null = null;
+        let spotifyId = artist.spotifyId;
+
+        if (spotifyId) {
+          const spotifyArtist = await client.getArtist(spotifyId);
+          const images = spotifyArtist['images'] as Array<{ url?: string }> | undefined;
+          if (Array.isArray(images) && images.length > 0 && typeof images[0]?.url === 'string') {
+            imageUrl = images[0].url;
+          }
+        } else {
+          const search = await client.searchCatalog(artist.name, ['artist']);
+          if (search.artists.length > 0) {
+            const first = search.artists[0] as Record<string, unknown>;
+            if (typeof first['id'] === 'string') {
+              spotifyId = first['id'];
+            }
+            const images = first['images'] as Array<{ url?: string }> | undefined;
+            if (Array.isArray(images) && images.length > 0 && typeof images[0]?.url === 'string') {
+              imageUrl = images[0].url;
+            }
+          }
+        }
+
+        if (imageUrl) {
+          artist = await artistRepository.update(id, {
+            imageUrl,
+            ...(spotifyId ? { spotifyId } : {}),
+          }) ?? artist;
+        }
+      } catch {
+        // Si Spotify no responde o tiene límites, no bloqueamos la respuesta.
+      }
+    }
+
+    // Obtiene las pistas del artista con mejores reseñas en el sitio.
+    const topTracks = await trackRepository.findTopTracksByArtist(id, 5);
+
+    res.status(200).json({
+      message: 'Artista encontrado',
+      data: {
+        id: artist.id,
+        name: artist.name,
+        biography: artist.biography,
+        imageUrl: artist.imageUrl,
+        spotifyId: artist.spotifyId,
+        topTracks,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function findTopTracks(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const id = parseId(req.params.id);
     const artist = await artistRepository.findById(id);
 
     if (!artist) {
       throw new AppError('Artista no encontrado', 404);
     }
 
+    const topTracks = await trackRepository.findTopTracksByArtist(id, 10);
+
     res.status(200).json({
-      message: 'Artista encontrado',
-      data: artist,
+      message: 'Canciones más destacadas del artista',
+      data: topTracks,
     });
   } catch (error) {
     next(error);

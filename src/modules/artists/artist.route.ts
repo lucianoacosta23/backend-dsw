@@ -7,6 +7,7 @@ import {
 import {
   findAll,
   findById,
+  findTopTracks,
   create,
   update,
   remove,
@@ -15,6 +16,7 @@ import {
 const artistRouter = Router();
 
 artistRouter.get('/', findAll);
+artistRouter.get('/:id/top-tracks', findTopTracks);
 artistRouter.get('/:id', findById);
 
 artistRouter.post(

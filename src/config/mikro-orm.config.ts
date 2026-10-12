@@ -7,6 +7,7 @@ import { UserFavoriteTrack } from '../modules/profiles/user-favorite-track.entit
 import { PlaylistSave } from '../modules/playlist/playlist-save.entity.js';
 import { defineConfig } from '@mikro-orm/postgresql';
 import { User } from '../modules/users/user.entity.js';
+import { UserSanction } from '../modules/users/user-sanction.entity.js';
 import { Artist } from '../modules/artists/artist.entity.js';
 import { Genre } from '../modules/genres/genres.entity.js';
 import { Release } from '../modules/releases/release.entity.js';
@@ -33,7 +34,7 @@ const dbConfig = {
 
 export default defineConfig({
 
-  entities: [User, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow, ReviewLike, ReviewReport, Playlist, PlaylistSave, ProfileImage, UserFavoriteRelease, UserFavoriteTrack, ReviewRevision],
+  entities: [User, UserSanction, Artist, Genre, Release, Track, ReleaseArtist, ReleaseGenre, TrackArtist, Session, Review, Comment, Follow, ReviewLike, ReviewReport, Playlist, PlaylistSave, ProfileImage, UserFavoriteRelease, UserFavoriteTrack, ReviewRevision],
 
   extensions: [Migrator],
   ...dbConfig,

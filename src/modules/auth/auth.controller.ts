@@ -7,6 +7,8 @@ import * as argon2 from 'argon2';
 import type { User } from '../users/user.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { authRepository } from './auth.repository.js';
+import { effectiveUserStatus } from '../users/user-status.js';
+import { assertAccountEnabled, assertAccountSession } from '../users/account-access.js';
 
 function requiredText(
   value: unknown,
@@ -113,6 +115,8 @@ export async function register(
         fullName: user.fullName,
         email: user.email,
         category: user.category,
+        status: effectiveUserStatus(user),
+        suspendedUntil: null,
         createdAt: user.createdAt,
       },
     });
@@ -134,6 +138,8 @@ function publicUser(user: User) {
     fullName: user.fullName,
     email: user.email,
     category: user.category,
+    status: effectiveUserStatus(user),
+    suspendedUntil: effectiveUserStatus(user) === 'SUSPENDED' ? user.suspendedUntil : null,
     createdAt: user.createdAt,
   };
 }
@@ -245,6 +251,8 @@ export async function login(
       throw new AppError('Email o contraseña incorrectos', 401);
     }
 
+    assertAccountEnabled(user);
+
     if (user.id === undefined) {
       throw new Error('El usuario no tiene un ID persistido');
     }
@@ -252,6 +260,7 @@ export async function login(
     await regenerateSession(req);
 
     req.session.userId = user.id;
+    req.session.userVersion = user.sessionVersion;
 
     await saveSession(req);
 
@@ -288,6 +297,8 @@ export async function me(
 
       throw new AppError('La sesión ya no es válida', 401);
     }
+
+    assertAccountSession(user, req);
 
     res.status(200).json({
       message: 'Usuario autenticado',
@@ -485,7 +496,9 @@ export async function spotifyCallback(
       throw new Error('El usuario no tiene un ID persistido');
     }
 
+    assertAccountEnabled(user);
     req.session.userId = user.id;
+    req.session.userVersion = user.sessionVersion;
     await saveSession(req);
 
     res.redirect(
@@ -605,7 +618,9 @@ export async function completeSpotifyRegistration(
     const returnUrl = pending.returnUrl;
 
     await regenerateSession(req);
+    assertAccountEnabled(user);
     req.session.userId = user.id;
+    req.session.userVersion = user.sessionVersion;
     await saveSession(req);
 
     res.status(201).json({

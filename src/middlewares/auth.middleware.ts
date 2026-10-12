@@ -4,6 +4,7 @@ import { authRepository } from '../modules/auth/auth.repository.js';
 import { AppError } from '../shared/errors/app-error.js';
 import type { User } from '../modules/users/user.entity.js';
 import { routeId } from '../modules/profiles/profile.validation.js';
+import { assertAccountSession } from '../modules/users/account-access.js';
 
 export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -11,7 +12,10 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
     delete res.locals.authUser;
     if (req.session.userId !== undefined) {
       const user = await authRepository.findById(req.session.userId);
-      if (user) res.locals.authUser = user;
+      if (user) {
+        assertAccountSession(user, req);
+        res.locals.authUser = user;
+      }
     }
     next();
   } catch (error) { next(error); }
@@ -45,6 +49,7 @@ export async function requireAuth(
       throw new AppError('La sesión ya no es válida', 401);
     }
 
+    assertAccountSession(user, req);
     res.locals.authUser = user;
     next();
   } catch (error) {

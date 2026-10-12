@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:sanctions": "node --import=tsx --test tests/user-sanction.rules.test.ts tests/user-sanction.integration.test.ts",
     "test:profile": "node --import=tsx --test tests/profile.rules.test.ts tests/profile.integration.test.ts",
     "images:prune": "tsx src/scripts/prune-images.ts",
     "test:comment": "node --import=tsx --test tests/comment.rules.test.ts tests/comment.integration.test.ts",

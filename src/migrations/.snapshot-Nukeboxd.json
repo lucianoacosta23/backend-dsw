@@ -438,7 +438,7 @@
       "checks": [
         {
           "name": "follow_no_self_follow",
-          "columnName": "followed_id",
+          "columnName": "follower_id",
           "definition": "CHECK ((follower_id <> followed_id))",
           "expression": "follower_id <> followed_id"
         }
@@ -1572,7 +1572,7 @@
       "checks": [
         {
           "name": "review_exactly_one_target_check",
-          "columnName": "track_id",
+          "columnName": "release_id",
           "definition": "CHECK (((release_id IS NOT NULL) <> (track_id IS NOT NULL)))",
           "expression": "(release_id IS NOT NULL) <> (track_id IS NOT NULL)"
         },

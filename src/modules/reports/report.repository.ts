@@ -2,6 +2,7 @@ import { LockMode, RequestContext } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
 import { User } from '../users/user.entity.js';
+import { lockEnabledUser } from '../users/account-access.js';
 import { Review } from '../reviews/review.entity.js';
 import { ReviewReport } from './report.entity.js';
 import { assertCanReportReview } from './report.rules.js';
@@ -46,6 +47,7 @@ export class ReviewReportRepository {
     data: CreateReportInput,
   ): Promise<ReviewReport> {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, reporterId);
       // Impide que se borre la reseña mientras se registra el reporte.
       const review = await tx.findOne(
         Review,
@@ -122,7 +124,10 @@ export class ReviewReportRepository {
        FROM review r
        JOIN "user" u ON u.id = r.author_id
        JOIN review_report rr ON rr.review_id = r.id
+       JOIN "user" reporter ON reporter.id = rr.reporter_id
        WHERE r.deleted_at IS NULL AND rr.status = ?
+         AND rr.reporter_id <> r.author_id
+         AND (reporter.status = 'ENABLED' OR (reporter.status = 'SUSPENDED' AND reporter.suspended_until <= CURRENT_TIMESTAMP))
        GROUP BY r.id, u.id
        HAVING COUNT(rr.id) >= ? ${maximum === undefined ? '' : 'AND COUNT(rr.id) <= ?'}
        ORDER BY COUNT(rr.id) DESC, r.id ASC`,

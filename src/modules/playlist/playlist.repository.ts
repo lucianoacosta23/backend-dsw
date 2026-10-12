@@ -3,6 +3,7 @@ import { LockMode, RequestContext } from '@mikro-orm/core';
 import { AppError } from '../../shared/errors/app-error.js';
 import { Track } from '../tracks/track.entity.js';
 import { User } from '../users/user.entity.js';
+import { lockEnabledUser } from '../users/account-access.js';
 import { Playlist } from './playlist.entity.js';
 
 export interface CreatePlaylistInput {
@@ -30,7 +31,8 @@ export class PlaylistRepository {
   }
 
   async create(input: CreatePlaylistInput): Promise<Playlist> {
-    const em = this.getEntityManager();
+    return this.getEntityManager().transactional(async em => {
+    await lockEnabledUser(em, input.userId);
 
     // 1. Verificamos que el usuario exista
     const user = await em.findOne(User, { id: input.userId });
@@ -51,6 +53,7 @@ export class PlaylistRepository {
     await em.persistAndFlush(playlist);
 
     return playlist;
+    });
   }
 
 

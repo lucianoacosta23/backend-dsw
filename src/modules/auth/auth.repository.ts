@@ -38,6 +38,7 @@ user.username = data.username.trim().toLowerCase();
   user.email = data.email;
   user.passwordHash = data.passwordHash;
   user.category = 'USER';
+  user.status = 'ENABLED';
   user.spotifyId = null;
   user.createdAt = new Date();
 
@@ -67,6 +68,7 @@ async function createSpotify(
   user.passwordHash = null;
   user.spotifyId = data.spotifyId;
   user.category = 'USER';
+  user.status = 'ENABLED';
   user.createdAt = new Date();
 
   await em.persistAndFlush(user);

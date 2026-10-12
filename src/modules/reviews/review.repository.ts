@@ -5,6 +5,7 @@ import { ReviewRevision } from './review-revision.entity.js';
 import { ReviewLike } from '../likes/like.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { User } from '../users/user.entity.js';
+import { lockEnabledUser } from '../users/account-access.js';
 import { Release } from '../releases/release.entity.js';
 import { Track } from '../tracks/track.entity.js';
 import { Review } from './review.entity.js';
@@ -285,7 +286,8 @@ export class ReviewRepository {
   }
 
   async create(data: CreateReviewInput, authorId: number): Promise<Review> {
-    const em = this.getEntityManager();
+    return this.getEntityManager().transactional(async em => {
+    await lockEnabledUser(em, authorId);
     const review = new Review();
 
     review.author = em.getReference(User, authorId);
@@ -320,6 +322,7 @@ export class ReviewRepository {
     await em.populate(review, ['author']);
 
     return review;
+    });
   }
 
 async updateText(

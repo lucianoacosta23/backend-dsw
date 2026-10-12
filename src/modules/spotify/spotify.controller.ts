@@ -9,7 +9,7 @@ import { Release } from '../releases/release.entity.js';
 
 let spotifyClient: SpotifyClient | undefined;
 
-function getSpotifyClient(): SpotifyClient {
+export function getSpotifyClient(): SpotifyClient {
   if (spotifyClient) {
     return spotifyClient;
   }

@@ -228,7 +228,29 @@ export async function removeTrack(
 
     res.status(200).json({
       message: 'Canción eliminada de la playlist con éxito',
+<<<<<<< Updated upstream
       data: await publicPlaylist(playlist),
+=======
+      data: {
+        id: playlist.id,
+        name: playlist.name,
+        tracks: playlist.tracks.getItems().map(track => ({
+          id: track.id,
+          spotifyId: track.spotifyId,
+          name: track.name,
+          durationMs: track.durationMs,
+          release: {
+            id: track.release.id,
+            name: track.release.name,
+            imageUrl: track.release.imageUrl,
+          },
+          artists: track.artists.getItems().map(artist => ({
+            id: artist.id,
+            name: artist.name,
+          })),
+        })),
+      },
+>>>>>>> Stashed changes
     });
   } catch (error) {
     next(error);

@@ -11,6 +11,7 @@ export interface UpdateArtistInput {
   name?: string;
   biography?: string | null;
   imageUrl?: string | null;
+  spotifyId?: string | null;
 }
 
 export class ArtistRepository {
@@ -72,6 +73,10 @@ export class ArtistRepository {
 
     if (data.imageUrl !== undefined) {
       artist.imageUrl = data.imageUrl;
+    }
+
+    if (data.spotifyId !== undefined) {
+      artist.spotifyId = data.spotifyId;
     }
 
     await em.flush();

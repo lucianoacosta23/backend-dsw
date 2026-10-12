@@ -127,7 +127,9 @@ export class ReviewRepository {
     const orderBy =
       input.sort === 'popular'
         ? 'like_count DESC, r.created_at DESC, r.id DESC'
-        : 'r.created_at DESC, r.id DESC';
+        : input.sort === 'oldest'
+          ? 'r.created_at ASC, r.id ASC'
+          : 'r.created_at DESC, r.id DESC';
 
     const offset = (input.page - 1) * input.pageSize;
 

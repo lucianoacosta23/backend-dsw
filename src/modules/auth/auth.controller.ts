@@ -236,6 +236,8 @@ export async function login(
   try {
     const { email, password } = parseLoginBody(req.body);
 
+    //Buscar el usuario por email y verificar la contraseña
+
     const user = await authRepository.findByEmail(email);
 
     if (!user || !user.passwordHash) {
@@ -251,11 +253,15 @@ export async function login(
       throw new AppError('Email o contraseña incorrectos', 401);
     }
 
+    //Validar que la cuenta esté habilitada y no suspendida o baneada
+
     assertAccountEnabled(user);
 
     if (user.id === undefined) {
       throw new Error('El usuario no tiene un ID persistido');
     }
+
+    //Volver a generar la sesión para prevenir fijación de sesión y establecer los datos de usuario en la sesión
 
     await regenerateSession(req);
 

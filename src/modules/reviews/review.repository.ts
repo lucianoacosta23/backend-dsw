@@ -1,3 +1,4 @@
+import { enabledAccountFilter, enabledAccountSql } from '../users/user-status.js';
 import { LockMode, RequestContext } from '@mikro-orm/core';
 import type { FilterQuery } from '@mikro-orm/core';
 
@@ -27,7 +28,7 @@ export class ReviewRepository {
 
     const review = await em.findOne(
       Review,
-      { id, deletedAt: null },
+      { id, deletedAt: null, author: enabledAccountFilter(this.now()) },
       {
         populate: [
           'author',
@@ -43,7 +44,7 @@ export class ReviewRepository {
     }
 
     const [likeCount, viewerLikes] = await Promise.all([
-      em.count(ReviewLike, { review: id }),
+      em.count(ReviewLike, { review: id, user: enabledAccountFilter(this.now()) }),
       viewerId === undefined
         ? Promise.resolve(0)
         : em.count(ReviewLike, {
@@ -102,12 +103,12 @@ export class ReviewRepository {
   }> {
     const em = this.getEntityManager();
 
-    const where: FilterQuery<Review> = { deletedAt: null };
-    const conditions = ['r.deleted_at IS NULL'];
+    const where: FilterQuery<Review> = { deletedAt: null, author: enabledAccountFilter(this.now()) };
+    const conditions = ['r.deleted_at IS NULL', `EXISTS (SELECT 1 FROM "user" visible_author WHERE visible_author.id = r.author_id AND ${enabledAccountSql('visible_author')})`];
     const params: number[] = [];
 
     if (input.authorId !== undefined) {
-      where.author = input.authorId;
+      where.author = { id: input.authorId, ...enabledAccountFilter(this.now()) };
       conditions.push('r.author_id = ?');
       params.push(input.authorId);
     }
@@ -143,6 +144,7 @@ export class ReviewRepository {
             SELECT COUNT(*)::int
             FROM review_like AS l
             WHERE l.review_id = r.id
+              AND EXISTS (SELECT 1 FROM "user" liker WHERE liker.id = l.user_id AND ${enabledAccountSql('liker')})
           ) AS like_count,
           EXISTS (
             SELECT 1
@@ -172,6 +174,7 @@ export class ReviewRepository {
       {
         id: { $in: rows.map(row => row.id) },
         deletedAt: null,
+        author: enabledAccountFilter(this.now()),
       },
       { populate: ['author'] },
     );
@@ -233,6 +236,7 @@ export class ReviewRepository {
         FROM "review"
         WHERE ${column} = ?
           AND deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM "user" visible_author WHERE visible_author.id = "review".author_id AND ${enabledAccountSql('visible_author')})
         GROUP BY rating
         ORDER BY rating ASC
       `,
@@ -280,7 +284,7 @@ export class ReviewRepository {
   async findById(id: number): Promise<Review | null> {
     return this.getEntityManager().findOne(
       Review,
-      { id, deletedAt: null },
+      { id, deletedAt: null, author: enabledAccountFilter(this.now()) },
       { populate: ['author'] },
     );
   }
@@ -331,6 +335,7 @@ async updateText(
   actor: ReviewActor,
 ): Promise<Review> {
   return this.getEntityManager().transactional(async tx => {
+    await lockEnabledUser(tx, actor.id);
     const review = await tx.findOne(
       Review,
       { id, deletedAt: null },
@@ -379,6 +384,7 @@ async findHistory(
   const review = await em.findOne(Review, {
     id: reviewId,
     deletedAt: null,
+    author: enabledAccountFilter(this.now()),
   });
 
   if (!review) {
@@ -403,6 +409,7 @@ async findHistory(
 
   async delete(id: number, actor: ReviewActor): Promise<void> {
     await this.getEntityManager().transactional(async tx => {
+    await lockEnabledUser(tx, actor.id);
       const review = await tx.findOne(
         Review,
         { id, deletedAt: null },

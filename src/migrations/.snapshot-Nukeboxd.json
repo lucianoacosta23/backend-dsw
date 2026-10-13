@@ -1572,7 +1572,7 @@
       "checks": [
         {
           "name": "review_exactly_one_target_check",
-          "columnName": "release_id",
+          "columnName": "track_id",
           "definition": "CHECK (((release_id IS NOT NULL) <> (track_id IS NOT NULL)))",
           "expression": "(release_id IS NOT NULL) <> (track_id IS NOT NULL)"
         },
@@ -2623,6 +2623,58 @@
           "comment": null,
           "enumItems": [],
           "mappedType": "integer"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'ENABLED'",
+          "comment": null,
+          "enumItems": [
+            "ENABLED",
+            "SUSPENDED",
+            "BANNED"
+          ],
+          "mappedType": "enum"
+        },
+        "suspended_until": {
+          "name": "suspended_until",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "session_version": {
+          "name": "session_version",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": "0",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
         }
       },
       "name": "user",
@@ -2669,7 +2721,14 @@
           "primary": false
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "user_suspension_expiry_check",
+          "columnName": "status",
+          "definition": "CHECK ((((status = 'SUSPENDED'::text) AND (suspended_until IS NOT NULL)) OR ((status <> 'SUSPENDED'::text) AND (suspended_until IS NULL))))",
+          "expression": "((status = 'SUSPENDED'::text) AND (suspended_until IS NOT NULL)) OR ((status <> 'SUSPENDED'::text) AND (suspended_until IS NULL))"
+        }
+      ],
       "foreignKeys": {
         "user_avatar_image_id_foreign": {
           "columnNames": [
@@ -3002,6 +3061,212 @@
           ],
           "updateRule": "cascade",
           "deleteRule": "cascade"
+        }
+      },
+      "nativeEnums": {},
+      "comment": null
+    },
+    {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int4",
+          "unsigned": true,
+          "autoincrement": true,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "administrator_id": {
+          "name": "administrator_id",
+          "type": "int4",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 32,
+          "scale": 0,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [
+            "SUSPEND",
+            "BAN",
+            "REACTIVATE"
+          ],
+          "mappedType": "enum"
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": "CURRENT_TIMESTAMP",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "suspended_until": {
+          "name": "suspended_until",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "removed_reviews": {
+          "name": "removed_reviews",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'[]'",
+          "comment": null,
+          "enumItems": [],
+          "mappedType": "json"
+        }
+      },
+      "name": "user_sanction",
+      "schema": "public",
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "user_sanction_pkey",
+          "unique": true,
+          "primary": true
+        },
+        {
+          "columnNames": [
+            "user_id",
+            "created_at",
+            "id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "user_sanction_user_created_index",
+          "unique": false,
+          "primary": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "user_sanction_expiry_check",
+          "columnName": "suspended_until",
+          "definition": "CHECK ((((action = 'SUSPEND'::text) AND (suspended_until IS NOT NULL) AND (suspended_until > created_at)) OR ((action <> 'SUSPEND'::text) AND (suspended_until IS NULL))))",
+          "expression": "((action = 'SUSPEND'::text) AND (suspended_until IS NOT NULL) AND (suspended_until > created_at)) OR ((action <> 'SUSPEND'::text) AND (suspended_until IS NULL))"
+        },
+        {
+          "name": "user_sanction_reason_check",
+          "columnName": "reason",
+          "definition": "CHECK (((char_length(reason) >= 1) AND (char_length(reason) <= 500)))",
+          "expression": "(char_length(reason) >= 1) AND (char_length(reason) <= 500)"
+        }
+      ],
+      "foreignKeys": {
+        "user_sanction_administrator_id_foreign": {
+          "columnNames": [
+            "administrator_id"
+          ],
+          "constraintName": "user_sanction_administrator_id_foreign",
+          "localTableName": "public.user_sanction",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "restrict"
+        },
+        "user_sanction_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "user_sanction_user_id_foreign",
+          "localTableName": "public.user_sanction",
+          "referencedTableName": "public.user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "updateRule": "cascade",
+          "deleteRule": "restrict"
         }
       },
       "nativeEnums": {},

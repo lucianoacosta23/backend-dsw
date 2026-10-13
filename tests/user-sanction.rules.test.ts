@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { effectiveUserStatus } from '../src/modules/users/user-status.js';
+import { effectiveUserStatus, SUSPENSION_DURATION_MS } from '../src/modules/users/user-status.js';
 import { parseSanction } from '../src/modules/users/user-sanction.validation.js';
 
 const now = new Date('2026-10-12T15:00:00.000Z');
@@ -11,9 +11,10 @@ test('la suspensión vence en la fecha exacta, el baneo no vence', () => {
   assert.equal(effectiveUserStatus({ status: 'BANNED', suspendedUntil: null }, now), 'BANNED');
 });
 
-test('suspensión exige fecha futura real y UTC; baneo tiene duración indefinida', () => {
+test('suspensión dura siete días calculados en el servidor; fecha heredada validada y baneo indefinido', () => {
   const input = { action: 'SUSPEND', reason: 'Acoso', suspendedUntil: '2026-10-20T18:00:00.000Z' };
-  assert.equal(parseSanction(input, now).suspendedUntil?.toISOString(), input.suspendedUntil);
+  assert.equal(parseSanction(input, now).suspendedUntil?.getTime(), now.getTime() + SUSPENSION_DURATION_MS);
+  assert.equal(parseSanction({ action: 'SUSPEND', reason: 'Acoso' }, now).suspendedUntil?.getTime(), now.getTime() + SUSPENSION_DURATION_MS);
   for (const date of ['2026-02-30T18:00:00.000Z', now.toISOString(), 'incorrecta', '2026-10-20']) {
     assert.throws(() => parseSanction({ ...input, suspendedUntil: date }, now));
   }

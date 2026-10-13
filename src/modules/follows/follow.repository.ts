@@ -1,3 +1,6 @@
+import { AppError } from '../../shared/errors/app-error.js';
+import { enabledAccountFilter } from '../users/user-status.js';
+import { lockEnabledUser, AccountRestrictionError } from '../users/account-access.js';
 import { RequestContext } from '@mikro-orm/core';
 
 import { Follow } from './follow.entity.js';
@@ -21,10 +24,10 @@ export class FollowRepository {
     const [followersCount, followingCount, isFollowing, followsMe] =
       await Promise.all([
         // Personas que siguen al usuario del perfil.
-        em.count(Follow, { followed: profileId }),
+        em.count(Follow, { followed: profileId, follower: enabledAccountFilter() }),
 
         // Personas que el usuario del perfil sigue.
-        em.count(Follow, { follower: profileId }),
+        em.count(Follow, { follower: profileId, followed: enabledAccountFilter() }),
 
         // ¿Yo sigo al usuario de este perfil?
         isOwnProfile || viewerId === null
@@ -45,15 +48,25 @@ export class FollowRepository {
       isOwnProfile,
     };
   }
-  
+
   async create(
     followerId: number,
     followedId: number,
   ): Promise<Follow> {
     const em = this.getEntityManager();
 
-    const follower = await em.findOne(User, { id: followerId });
-    const followed = await em.findOne(User, { id: followedId });
+    return em.transactional(async tx => {
+      for (const id of [...new Set([followerId, followedId])].sort((a, b) => a - b)) {
+        try { await lockEnabledUser(tx, id); }
+        catch (error) {
+          if (id === followedId && error instanceof AccountRestrictionError) {
+            throw new AppError('Usuario no disponible para seguir', 404);
+          }
+          throw error;
+        }
+      }
+      const follower = await tx.findOne(User, { id: followerId });
+    const followed = await tx.findOne(User, { id: followedId });
 
     if (!follower) {
       throw new Error('El usuario follower no existe');
@@ -68,9 +81,10 @@ export class FollowRepository {
     follow.follower = follower;
     follow.followed = followed;
 
-    await em.persistAndFlush(follow);
+    await tx.persistAndFlush(follow);
 
     return follow;
+    });
   }
 
   async delete(
@@ -100,8 +114,8 @@ export class FollowRepository {
     const em = this.getEntityManager();
 
     const follow = await em.findOne(Follow, {
-      follower: followerId,
-      followed: followedId,
+      follower: { id: followerId, ...enabledAccountFilter() },
+      followed: { id: followedId, ...enabledAccountFilter() },
     });
 
     return !!follow;

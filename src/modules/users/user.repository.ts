@@ -1,3 +1,4 @@
+import { enabledAccountFilter } from './user-status.js';
 import { LockMode, RequestContext } from '@mikro-orm/core';
 import { ProfileImage } from '../profiles/profile-image.entity.js';
 import { ImageService } from '../profiles/image.service.js';
@@ -90,7 +91,7 @@ export class UserRepository {
     return user;
   }
 
-  //esta funcion compra que un nombre de ususuario sea igual a otro 
+  //esta funcion compra que un nombre de ususuario sea igual a otro
  async findByUsername(username: string): Promise<User | null> {
   const em = RequestContext.getEntityManager();
 
@@ -148,9 +149,9 @@ export class UserRepository {
   if (!em) throw new Error('No hay un contexto de base de datos activo');
 
   return await em.find(User, {
-    $or: [
+    $and: [enabledAccountFilter(), { $or: [
       { username: { $ilike: `%${searchTerm}%` } }
-    ]
+    ] }]
   });
   }
 }

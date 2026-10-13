@@ -1,3 +1,4 @@
+import { lockEnabledUser } from '../users/account-access.js';
 import { LockMode, RequestContext } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
@@ -37,6 +38,7 @@ export class PlaylistLibraryRepository {
 
   async save(playlistId: number, userId: number) {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, userId);
       // Coordina guardados, bajas y modificaciones de esta playlist.
       const playlist = await tx.findOne(
         Playlist,
@@ -84,6 +86,7 @@ export class PlaylistLibraryRepository {
 
   async unsave(playlistId: number, userId: number) {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, userId);
       const playlist = await tx.findOne(
         Playlist,
         { id: playlistId },

@@ -1,3 +1,4 @@
+import { enabledAccountSql } from '../users/user-status.js';
 import {
   LockMode,
   RequestContext,
@@ -51,6 +52,7 @@ export class ReleaseRepository {
        from "release" r
        left join "review" rv
          on rv."release_id" = r."id" and rv."deleted_at" is null
+         and exists (select 1 from "user" visible_author where visible_author.id = rv."author_id" and ${enabledAccountSql('visible_author')})
        group by r."id"
        order by count(rv."id") desc, r."name" asc, r."id" asc
        limit ?`,
@@ -210,8 +212,8 @@ export class ReleaseRepository {
     const em = this.getEntityManager();
 
     return em.find(Release, {
-      
-      name: { $ilike: `%${searchTerm}%` }, 
+
+      name: { $ilike: `%${searchTerm}%` },
     }, {
       populate: ['artists', 'tracks'], // Trae las relaciones si las necesitas
       orderBy: {

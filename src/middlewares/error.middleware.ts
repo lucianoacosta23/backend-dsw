@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../shared/errors/app-error.js';
+import { ProfileRestrictionError } from '../modules/profiles/profile-restriction.error.js';
 import { AccountRestrictionError } from '../modules/users/account-access.js';
 
 export const errorMiddleware = (
@@ -24,7 +25,7 @@ export const errorMiddleware = (
     res.status(err.statusCode).json({
       success: false,
       message: err.message,
-      ...(err instanceof AccountRestrictionError ? { code: err.code, suspendedUntil: err.suspendedUntil } : {}),
+      ...(err instanceof AccountRestrictionError || err instanceof ProfileRestrictionError ? { code: err.code, suspendedUntil: err.suspendedUntil } : {}),
     });
     return;
   }

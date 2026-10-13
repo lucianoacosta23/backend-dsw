@@ -1,8 +1,15 @@
+import { Follow } from '../src/modules/follows/follow.entity.js';
+import { FollowRepository } from '../src/modules/follows/follow.repository.js';
+import { ReviewLike } from '../src/modules/likes/like.entity.js';
+import { UserFavoriteRelease } from '../src/modules/profiles/user-favorite-release.entity.js';
+import { UserFavoriteTrack } from '../src/modules/profiles/user-favorite-track.entity.js';
+import { SUSPENSION_DURATION_MS } from '../src/modules/users/user-status.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import type { Server } from 'node:http';
-import { after, before, describe, test } from 'node:test';
+import { SpotifyAuthClient } from '../src/modules/auth/spotify-auth.client.js';
+import { after, before, describe, test, mock } from 'node:test';
 import express from 'express';
 import session from 'express-session';
 import * as argon2 from 'argon2';
@@ -175,33 +182,62 @@ describe('Review con PostgreSQL, migraciones, rutas y sesiones reales', { concur
   });
 
 
-  test('sanciones: contrato, permisos, borrado, evidencia, sesiones, expiración y baneo', async () => {
+  test('siete días sin borrado, expiración, sesiones y limpieza permanente del baneo', async () => {
     const moderator = await newUser('ADMIN');
     const author = await newUser();
     const other = await newUser();
     const release = await newRelease();
     const review = await createReview(author.cookie, release.id);
+    const removed = await createReview(author.cookie, release.id, 2, 'Reseña moderada individualmente');
+    await database().em.fork().nativeUpdate(Review, { id: removed.id }, { deletedAt: new Date() });
     const otherReview = await createReview(other.cookie, release.id);
     const em = database().em.fork();
     const playlist = new Playlist();
     playlist.name = 'Conservar al suspender';
     playlist.user = em.getReference(User, author.user.id);
-    const comment = new Comment();
-    comment.author = em.getReference(User, other.user.id);
-    comment.review = em.getReference(Review, review.id);
-    comment.text = 'Comentario asociado';
-    await em.persistAndFlush([playlist, comment]);
-    const saved = new PlaylistSave();
-    saved.user = em.getReference(User, other.user.id);
-    saved.playlist = playlist;
-    await em.persistAndFlush(saved);
+    const otherPlaylist = new Playlist();
+    otherPlaylist.name = 'Playlist ajena';
+    otherPlaylist.user = em.getReference(User, other.user.id);
+    const root = new Comment();
+    root.author = em.getReference(User, author.user.id);
+    root.review = em.getReference(Review, otherReview.id);
+    root.text = 'Comentario del usuario sancionado en otra reseña';
+    const associated = new Comment();
+    associated.author = em.getReference(User, other.user.id);
+    associated.review = em.getReference(Review, review.id);
+    associated.text = 'Comentario en reseña que se eliminará al banear';
+    const follow = new Follow();
+    follow.follower = em.getReference(User, author.user.id);
+    follow.followed = em.getReference(User, other.user.id);
+    const inverse = new Follow();
+    inverse.follower = em.getReference(User, other.user.id);
+    inverse.followed = em.getReference(User, author.user.id);
+    const like = new ReviewLike();
+    like.user = em.getReference(User, author.user.id);
+    like.review = em.getReference(Review, otherReview.id);
+    const favorite = new UserFavoriteRelease();
+    favorite.user = em.getReference(User, author.user.id);
+    favorite.release = em.getReference(Release, release.id);
+    favorite.position = 1;
+    await em.persistAndFlush([playlist, otherPlaylist, root, associated, follow, inverse, like, favorite]);
+    const reply = new Comment();
+    reply.author = em.getReference(User, other.user.id);
+    reply.review = em.getReference(Review, otherReview.id);
+    reply.parent = root;
+    reply.text = 'Respuesta ajena que debe sobrevivir';
+    const savedByOther = new PlaylistSave();
+    savedByOther.user = em.getReference(User, other.user.id);
+    savedByOther.playlist = playlist;
+    const savedByAuthor = new PlaylistSave();
+    savedByAuthor.user = em.getReference(User, author.user.id);
+    savedByAuthor.playlist = otherPlaylist;
+    await em.persistAndFlush([reply, savedByOther, savedByAuthor]);
     for (const [id, cookie] of [[review.id, other.cookie], [otherReview.id, author.cookie]] as const) {
       const reported = await request(`/reviews/${id}/reports`, { method: 'POST', cookie, body: { reason: 'HARASSMENT', details: 'Detalle para auditoría' } });
       assert.equal(reported.status, 201, await reported.clone().text());
     }
     const path = `/admin/users/${author.user.id}/sanctions`;
-    const until = new Date(Date.now() + 86400000).toISOString();
-    const suspendBody = { action: 'SUSPEND', reason: 'Acoso reiterado', suspendedUntil: until };
+    const suspendBody = { action: 'SUSPEND', reason: 'Acoso reiterado' };
     const sanction = (body: unknown, cookie = moderator.cookie, customPath = path, header = true) => request(customPath, { method: 'POST', cookie, body, header });
     await expectError(await request('/admin/users'), 401);
     await expectError(await request('/admin/users', { cookie: author.cookie }), 403);
@@ -212,30 +248,37 @@ describe('Review con PostgreSQL, migraciones, rutas y sesiones reales', { concur
     await expectError(await sanction({ ...suspendBody, administratorId: other.user.id }), 400);
     await expectError(await sanction(suspendBody, moderator.cookie, `/admin/users/${moderator.user.id}/sanctions`), 403);
     await expectError(await sanction(suspendBody, moderator.cookie, '/admin/users/2147483647/sanctions'), 404);
-    assert.ok(await database().em.fork().findOne(Review, review.id));
 
-    const before = await request(`/admin/users/${author.user.id}`, { cookie: moderator.cookie });
-    const beforeData = (await before.json()).data;
-    assert.equal(beforeData.pendingReportCount, 1);
-    assert.equal(beforeData.status, 'ENABLED');
-    assert.equal(beforeData.activeSanction, null);
-    assert.ok(!('email' in beforeData));
-
+    const beforeTime = Date.now();
     const results = await Promise.all([sanction(suspendBody), sanction(suspendBody)]);
+    const afterTime = Date.now();
     assert.deepEqual(results.map(result => result.status).sort(), [201, 409]);
     const response = await results.find(result => result.status === 201)!.json();
+    const until = response.data.suspendedUntil;
     assert.equal(response.data.status, 'SUSPENDED');
-    assert.equal(response.data.suspendedUntil, until);
+    assert.ok(Date.parse(until) >= beforeTime + SUSPENSION_DURATION_MS);
+    assert.ok(Date.parse(until) <= afterTime + SUSPENSION_DURATION_MS);
     assert.equal(response.data.activeSanction.action, 'SUSPEND');
     assert.equal(response.data.activeSanction.administrator.id, moderator.user.id);
     assert.equal(response.data.removedReviewCount, 1);
-    assert.equal(await database().em.fork().count(Review, { author: author.user.id }), 0);
-    assert.equal(await database().em.fork().count(ReviewReport, { reporter: author.user.id }), 0);
-    assert.equal(await database().em.fork().count(ReviewReport, { review: review.id }), 0);
-    assert.equal(await database().em.fork().count(Comment, { review: review.id }), 0);
+    assert.equal(await database().em.fork().count(Review, { author: author.user.id }), 2);
+    assert.equal(await database().em.fork().count(ReviewReport, { reporter: author.user.id }), 1);
+    assert.equal(await database().em.fork().count(ReviewReport, { review: review.id }), 1);
+    assert.equal(await database().em.fork().count(Comment, { author: author.user.id }), 1);
     assert.equal(await database().em.fork().count(Playlist, { user: author.user.id }), 1);
-    assert.equal(await database().em.fork().count(PlaylistSave, { playlist: playlist.id! }), 1);
-    assert.ok(await database().em.fork().findOne(Review, otherReview.id));
+    const stats = await inContext(() => new FollowRepository().getProfileStats(other.user.id, null));
+    assert.equal(stats.followersCount, 0);
+    assert.equal(stats.followingCount, 0);
+    assert.equal(await database().em.fork().count(Follow, { $or: [{ follower: author.user.id }, { followed: author.user.id }] }), 2);
+    const ownList = await request(`/reviews?authorId=${author.user.id}`, { cookie: other.cookie });
+    assert.equal((await ownList.json()).pagination.total, 0);
+    assert.equal((await request(`/reviews/${review.id}`, { cookie: other.cookie })).status, 404);
+    const otherDetail = await request(`/reviews/${otherReview.id}`, { cookie: other.cookie });
+    assert.equal((await otherDetail.json()).data.likeCount, 0);
+    const statsResponse = await request(`/reviews/stats?releaseId=${release.id}`);
+    assert.equal((await statsResponse.json()).data.totalRatings, 1);
+    const otherAdmin = await request(`/admin/users/${other.user.id}`, { cookie: moderator.cookie });
+    assert.equal((await otherAdmin.json()).data.pendingReportCount, 0);
 
     for (const endpoint of ['/auth/me', '/users/me']) {
       const blocked = await request(endpoint, { cookie: author.cookie });
@@ -243,58 +286,97 @@ describe('Review con PostgreSQL, migraciones, rutas y sesiones reales', { concur
       const restriction = await blocked.json();
       assert.equal(restriction.code, 'ACCOUNT_SUSPENDED');
       assert.equal(restriction.suspendedUntil, until);
+      assert.match(restriction.message, /UTC/);
     }
     const login = () => request('/auth/login', { method: 'POST', body: { email: author.user.email, password } });
     assert.equal((await login()).status, 403);
     const profile = await request(`/users/${author.user.id}/profile`);
-    const profileData = (await profile.json()).data;
-    assert.equal(profileData.restricted, true);
-    assert.equal(profileData.status, 'SUSPENDED');
-    assert.ok(!('fullName' in profileData));
+    assert.equal(profile.status, 404);
+    assert.deepEqual(await profile.json(), {
+      success: false, message: 'Este perfil no está disponible.', code: 'PROFILE_SUSPENDED', suspendedUntil: until,
+    });
+    const namedProfile = await request(`/users/search?username=${encodeURIComponent(author.user.username)}`);
+    assert.equal(namedProfile.status, 404);
+    assert.deepEqual(await namedProfile.json(), {
+      success: false, message: 'Este perfil no está disponible.', code: 'PROFILE_SUSPENDED', suspendedUntil: until,
+    });
     const evidence = await request(`/admin/users/${author.user.id}/review-reports`, { cookie: moderator.cookie });
     const groups = (await evidence.json()).data;
-    assert.equal(groups[0].review.id, review.id);
-    assert.equal(groups[0].review.reportCount, 0);
-    assert.ok(groups[0].review.deletedAt);
-    assert.equal(groups[0].reports[0].details, 'Detalle para auditoría');
+    const group = groups.find((entry: { review: { id: number } }) => entry.review.id === review.id);
+    assert.ok(group);
+    assert.equal(group.review.deletedAt, null);
+    assert.equal(group.reports[0].details, 'Detalle para auditoría');
 
     const enabled = await sanction({ action: 'REACTIVATE', reason: 'Revisión administrativa' });
     assert.equal(enabled.status, 201);
     assert.equal((await enabled.json()).data.status, 'ENABLED');
     assert.equal((await request('/auth/me', { cookie: author.cookie })).status, 401);
     assert.equal((await login()).status, 200);
-    assert.equal(await database().em.fork().count(Review, { author: author.user.id }), 0);
-    assert.equal(await database().em.fork().count(ReviewReport, { reporter: author.user.id }), 0);
-    await expectError(await sanction({ action: 'REACTIVATE', reason: 'Duplicado' }), 409);
-
     const again = await sanction(suspendBody);
     assert.equal(again.status, 201);
     await database().em.fork().nativeUpdate(User, { id: author.user.id }, { suspendedUntil: new Date(Date.now() - 1000) });
     const expired = await request(`/admin/users/${author.user.id}`, { cookie: moderator.cookie });
-    const expiredData = (await expired.json()).data;
-    assert.equal(expiredData.status, 'ENABLED');
-    assert.equal(expiredData.activeSanction, null);
+    assert.equal((await expired.json()).data.status, 'ENABLED');
     assert.equal((await login()).status, 200);
+    const restoredList = await request(`/reviews?authorId=${author.user.id}`, { cookie: other.cookie });
+    assert.equal((await restoredList.json()).pagination.total, 1);
+    assert.equal((await request(`/reviews/${removed.id}`, { cookie: other.cookie })).status, 404);
+    const restoredStats = await inContext(() => new FollowRepository().getProfileStats(other.user.id, null));
+    assert.equal(restoredStats.followersCount, 1);
+    assert.equal(restoredStats.followingCount, 1);
+    const restoredOther = await request(`/admin/users/${other.user.id}`, { cookie: moderator.cookie });
+    assert.equal((await restoredOther.json()).data.pendingReportCount, 1);
+    const restoredDetail = await request(`/reviews/${otherReview.id}`, { cookie: other.cookie });
+    assert.equal((await restoredDetail.json()).data.likeCount, 1);
 
     const banned = await sanction({ action: 'BAN', reason: 'Reincidencia' });
     assert.equal(banned.status, 201, await banned.clone().text());
-    const bannedData = (await banned.json()).data;
-    assert.equal(bannedData.status, 'BANNED');
-    assert.equal(bannedData.suspendedUntil, null);
-    assert.equal(bannedData.activeSanction.action, 'BAN');
-    assert.equal(await database().em.fork().count(Playlist, { user: author.user.id }), 0);
-    assert.equal(await database().em.fork().count(PlaylistSave, { playlist: playlist.id! }), 0);
-    const bannedLogin = await login();
-    assert.equal(bannedLogin.status, 403);
-    assert.equal((await bannedLogin.json()).code, 'ACCOUNT_BANNED');
+    assert.equal((await banned.json()).data.status, 'BANNED');
+    const clean = database().em.fork();
+    assert.equal(await clean.count(Review, { author: author.user.id }), 0);
+    assert.equal(await clean.count(Comment, { author: author.user.id }), 0);
+    assert.equal(await clean.count(ReviewLike, { user: author.user.id }), 0);
+    assert.equal(await clean.count(Follow, { $or: [{ follower: author.user.id }, { followed: author.user.id }] }), 0);
+    assert.equal(await clean.count(Playlist, { user: author.user.id }), 0);
+    assert.equal(await clean.count(PlaylistSave, { user: author.user.id }), 0);
+    assert.equal(await clean.count(UserFavoriteRelease, { user: author.user.id }), 0);
+    assert.equal(await clean.count(UserFavoriteTrack, { user: author.user.id }), 0);
+    assert.equal(await clean.count(PlaylistSave, { playlist: playlist.id! }), 0);
+    assert.equal((await clean.findOneOrFail(Comment, reply.id!)).parent, null);
+    assert.ok(await clean.findOne(User, author.user.id));
+    assert.equal((await login()).status, 403);
+    const bannedProfile = await request(`/users/search?username=${encodeURIComponent(author.user.username)}`);
+    assert.equal(bannedProfile.status, 404);
+    assert.deepEqual(await bannedProfile.json(), {
+      success: false, message: 'Este perfil no está disponible.', code: 'PROFILE_BANNED', suspendedUntil: null,
+    });
     await expectError(await sanction({ action: 'BAN', reason: 'Duplicado' }), 409);
+    const archived = await request(`/admin/users/${author.user.id}/review-reports`, { cookie: moderator.cookie });
+    const archivedGroup = (await archived.json()).data.find((entry: { review: { id: number } }) => entry.review.id === review.id);
+    assert.ok(archivedGroup.review.deletedAt);
+    assert.equal(archivedGroup.reports[0].details, 'Detalle para auditoría');
     const history = await request(path, { cookie: moderator.cookie });
-    const entries = (await history.json()).data;
-    assert.equal(entries.length, 4);
-    assert.equal(new Set(entries.map((entry: { id: number }) => entry.id)).size, 4);
-    assert.equal(entries[0].action, 'BAN');
+    assert.equal((await history.json()).data.length, 4);
     assert.equal((await sanction({ action: 'REACTIVATE', reason: 'Revisión' })).status, 201);
-    assert.equal(await database().em.fork().count(Playlist, { user: author.user.id }), 0);
+    assert.equal(await clean.count(Review, { author: author.user.id }), 0);
+    assert.equal(await clean.count(Follow, { $or: [{ follower: author.user.id }, { followed: author.user.id }] }), 0);
+  });
+
+  test('una baja individual durante la suspensión no revive al vencer', async () => {
+    const moderator = await newUser('ADMIN');
+    const author = await newUser();
+    const release = await newRelease();
+    const review = await createReview(author.cookie, release.id);
+    const path = `/admin/users/${author.user.id}/sanctions`;
+    const blocked = await request(path, { method: 'POST', cookie: moderator.cookie,
+      body: { action: 'SUSPEND', reason: 'Prueba de suspensión' } });
+    assert.equal(blocked.status, 201);
+    const removed = await request(`/reviews/${review.id}`, { method: 'DELETE', cookie: moderator.cookie });
+    assert.equal(removed.status, 204, await removed.clone().text());
+    await database().em.fork().nativeUpdate(User, { id: author.user.id }, { suspendedUntil: new Date(Date.now() - 1000) });
+    assert.equal((await request(`/reviews/${review.id}`, { cookie: moderator.cookie })).status, 404);
+    const stats = await request(`/reviews/stats?releaseId=${release.id}`);
+    assert.equal((await stats.json()).data.totalRatings, 0);
   });
 
   test('una falla al eliminar playlists revierte cuenta, reseñas, reportes e historial', async () => {
@@ -327,7 +409,55 @@ describe('Review con PostgreSQL, migraciones, rutas y sesiones reales', { concur
     }
   });
 
-  test('la migración coincide con el modelo de sanciones', async () => {
+  test('Spotify restricted login redirects to the frontend without authenticating; reactivation requires a fresh login', async () => {
+    const moderator = await newUser('ADMIN');
+    const author = await newUser();
+    const changedEnv = ['SPOTIFY_CLIENT_ID', 'SPOTIFY_CLIENT_SECRET', 'SPOTIFY_REDIRECT_URI', 'FRONTEND_URL'] as const;
+    const previous = changedEnv.map(key => process.env[key]);
+    Object.assign(process.env, {
+      SPOTIFY_CLIENT_ID: 'test-client', SPOTIFY_CLIENT_SECRET: 'test-secret',
+      SPOTIFY_REDIRECT_URI: `${baseUrl}/auth/spotify/callback`, FRONTEND_URL: 'http://127.0.0.1:4200',
+    });
+    const token = mock.method(SpotifyAuthClient.prototype, 'exchangeCode', async () => 'test-token');
+    const identity = mock.method(SpotifyAuthClient.prototype, 'getCurrentProfile', async () => ({ accountId: author.user.spotifyId!, displayName: 'Private name' }));
+    try {
+      const sanctionResponse = await request(`/admin/users/${author.user.id}/sanctions`, {
+        method: 'POST', cookie: moderator.cookie, body: { action: 'SUSPEND', reason: 'OAuth test' },
+      });
+      assert.equal(sanctionResponse.status, 201);
+      const until = (await sanctionResponse.json()).data.suspendedUntil;
+      const start = await fetch(`${baseUrl}/auth/spotify/login?returnUrl=%2Fprofile`, { redirect: 'manual' });
+      assert.equal(start.status, 302);
+      const state = new URL(start.headers.get('location')!).searchParams.get('state');
+      const cookie = start.headers.get('set-cookie')!.split(';')[0];
+      assert.ok(cookie);
+      const callback = await fetch(`${baseUrl}/auth/spotify/callback?state=${state}&code=test-code`, {
+        redirect: 'manual', headers: { Cookie: cookie },
+      });
+      assert.equal(callback.status, 303);
+      assert.equal(callback.headers.get('location'), 'http://127.0.0.1:4200/login?returnUrl=%2Fprofile');
+      const deniedCookie = callback.headers.get('set-cookie')!.split(';')[0];
+      assert.ok(deniedCookie);
+      const notice = await request('/auth/me', { cookie: deniedCookie });
+      assert.equal(notice.status, 403);
+      const body = await notice.json();
+      assert.equal(body.code, 'ACCOUNT_SUSPENDED');
+      assert.equal(body.suspendedUntil, until);
+      assert.deepEqual(Object.keys(body).sort(), ['code', 'message', 'success', 'suspendedUntil']);
+      await expectError(await request('/users/me', { cookie: deniedCookie }), 401);
+      const reactivated = await request(`/admin/users/${author.user.id}/sanctions`, {
+        method: 'POST', cookie: moderator.cookie, body: { action: 'REACTIVATE', reason: 'OAuth test end' },
+      });
+      assert.equal(reactivated.status, 201);
+      await expectError(await request('/auth/me', { cookie: deniedCookie }), 401);
+      await expectError(await request('/users/me', { cookie: deniedCookie }), 401);
+    } finally {
+      token.mock.restore(); identity.mock.restore();
+      changedEnv.forEach((key, i) => { if (previous[i] === undefined) delete process.env[key]; else process.env[key] = previous[i]; });
+    }
+  });
+
+  test('la migración coincide con el modelo de sanciones' , async () => {
     const sql = await database().schema.getUpdateSchemaSQL({ wrap: false });
     const changes = sql.split('\n').filter(line => /user_sanction|suspended_until|session_version|user_status/.test(line));
     assert.deepEqual(changes, [], changes.join('\n'));

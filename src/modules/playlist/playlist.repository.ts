@@ -40,10 +40,10 @@ export class PlaylistRepository {
       throw new AppError('Usuario no encontrado', 404);
     }
 
-  
 
 
-    // 2. Creamos la instancia de la playlist 
+
+    // 2. Creamos la instancia de la playlist
     const playlist = em.create(Playlist, {
       name: input.name,
       user: user,
@@ -63,6 +63,7 @@ export class PlaylistRepository {
     ownerId: number,
   ): Promise<Playlist> {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, ownerId);
       // Coordina las solicitudes que agregan canciones a esta playlist.
       const playlist = await tx.findOne(
         Playlist,
@@ -116,6 +117,7 @@ export class PlaylistRepository {
     ownerId: number,
   ): Promise<Playlist> {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, ownerId);
       const playlist = await tx.findOne(
         Playlist,
         { id: playlistId },
@@ -169,6 +171,7 @@ export class PlaylistRepository {
     ownerId: number,
   ): Promise<Playlist> {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, ownerId);
       const playlist = await tx.findOne(
         Playlist,
         { id },
@@ -201,6 +204,7 @@ export class PlaylistRepository {
     ownerId: number,
   ): Promise<void> {
     await this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, ownerId);
       const playlist = await tx.findOne(
         Playlist,
         { id },

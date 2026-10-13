@@ -1,3 +1,5 @@
+import { enabledAccountFilter } from '../users/user-status.js';
+import { lockEnabledUser } from '../users/account-access.js';
 import { LockMode, RequestContext } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
@@ -22,11 +24,13 @@ export class ReviewLikeRepository {
 
   async like(reviewId: number, userId: number): Promise<LikeResult> {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, userId);
       // FOR SHARE: varios likes a la misma reseña no se bloquean entre sí, pero sí
       // esperan a un borrado en curso (ReviewRepository.delete usa FOR UPDATE).
       // Así nunca se registra un like sobre una reseña que se acaba de borrar.
-      const review = await tx.findOne(Review, { id: reviewId, deletedAt: null }, {
+      const review = await tx.findOne(Review, { id: reviewId, deletedAt: null, author: enabledAccountFilter(this.now()) }, {
         lockMode: LockMode.PESSIMISTIC_READ,
+        lockTableAliases: ['r0'],
         refresh: true,
       });
       if (!review) throw new AppError('Reseña no encontrada', 404);
@@ -38,7 +42,7 @@ export class ReviewLikeRepository {
       like.createdAt = this.now();
       await tx.persistAndFlush(like);
 
-      return { like, likeCount: await tx.count(ReviewLike, { review: reviewId }) };
+      return { like, likeCount: await tx.count(ReviewLike, { review: reviewId, user: enabledAccountFilter(this.now()) }) };
     });
   }
 
@@ -46,13 +50,13 @@ export class ReviewLikeRepository {
   async unlike(reviewId: number, userId: number): Promise<number> {
     const em = this.getEntityManager();
 
-    if (await em.count(Review, { id: reviewId, deletedAt: null }) === 0) {
+    if (await em.count(Review, { id: reviewId, deletedAt: null, author: enabledAccountFilter(this.now()) }) === 0) {
       throw new AppError('Reseña no encontrada', 404);
     }
 
     const removed = await em.nativeDelete(ReviewLike, { review: reviewId, user: userId });
     if (removed === 0) throw new AppError('No diste like a esta reseña', 404);
 
-    return em.count(ReviewLike, { review: reviewId });
+    return em.count(ReviewLike, { review: reviewId, user: enabledAccountFilter(this.now()) });
   }
 }

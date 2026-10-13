@@ -1,4 +1,5 @@
 import { LockMode, RequestContext, type EntityManager } from '@mikro-orm/core';
+import { ProfileRestrictionError } from './profile-restriction.error.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { User } from '../users/user.entity.js';
 import { effectiveUserStatus } from '../users/user-status.js';
@@ -25,10 +26,7 @@ export class ProfileRepository {
     if (!user) throw new AppError('Usuario no encontrado', 404);
     const status = effectiveUserStatus(user);
     if (status !== 'ENABLED') {
-      return {
-        id: user.id, username: user.username, status, restricted: true,
-        message: status === 'SUSPENDED' ? 'Cuenta suspendida' : 'Cuenta baneada',
-      };
+      throw new ProfileRestrictionError(status, status === 'SUSPENDED' ? user.suspendedUntil!.toISOString() : null);
     }
     const [releases, tracks, stats] = await Promise.all([
       em.find(UserFavoriteRelease, { user: user.id! }, { populate: ['release.artists'], orderBy: { position: 'ASC' } }),

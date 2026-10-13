@@ -8,7 +8,7 @@ import type { User } from '../users/user.entity.js';
 import { AppError } from '../../shared/errors/app-error.js';
 import { authRepository } from './auth.repository.js';
 import { effectiveUserStatus } from '../users/user-status.js';
-import { assertAccountEnabled, assertAccountSession } from '../users/account-access.js';
+import { AccountRestrictionError, assertAccountEnabled, assertAccountSession } from '../users/account-access.js';
 
 function requiredText(
   value: unknown,
@@ -286,6 +286,16 @@ export async function me(
     const userId = req.session.userId;
 
     if (userId === undefined) {
+      const pending = req.session.pendingAccountRestriction;
+      if (pending && pending.expiresAt > Date.now()) {
+        const restricted = await authRepository.findById(pending.userId);
+        if (restricted) assertAccountEnabled(restricted);
+      }
+      // Reactivation/expiry still requires a fresh login; the marker is not authentication.
+      if (pending) {
+        delete req.session.pendingAccountRestriction;
+        await saveSession(req);
+      }
       throw new AppError('Debe iniciar sesión', 401);
     }
 
@@ -496,7 +506,15 @@ export async function spotifyCallback(
       throw new Error('El usuario no tiene un ID persistido');
     }
 
-    assertAccountEnabled(user);
+    try {
+      assertAccountEnabled(user);
+    } catch (error) {
+      if (!(error instanceof AccountRestrictionError)) throw error;
+      req.session.pendingAccountRestriction = { userId: user.id, expiresAt: Date.now() + 15 * 60 * 1000 };
+      await saveSession(req);
+      res.redirect(303, `${frontendUrl}/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
     req.session.userId = user.id;
     req.session.userVersion = user.sessionVersion;
     await saveSession(req);

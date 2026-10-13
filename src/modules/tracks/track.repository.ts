@@ -1,3 +1,4 @@
+import { enabledAccountSql } from '../users/user-status.js';
 import { RequestContext } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
@@ -199,6 +200,7 @@ async findPopularTracks(
        from "track" t
        left join "review" rv
          on rv."track_id" = t."id" and rv."deleted_at" is null
+         and exists (select 1 from "user" visible_author where visible_author.id = rv."author_id" and ${enabledAccountSql('visible_author')})
        group by t."id"
        order by count(rv."id") desc, t."name" asc, t."id" asc
        limit ?`,
@@ -260,6 +262,7 @@ async findPopularTracks(
        from "track" t
        left join "review" rv
          on rv."track_id" = t."id" and rv."deleted_at" is null
+         and exists (select 1 from "user" visible_author where visible_author.id = rv."author_id" and ${enabledAccountSql('visible_author')})
        where t."id" in (
          select ta."track_id" from "track_artists" ta where ta."artist_id" = ?
          union

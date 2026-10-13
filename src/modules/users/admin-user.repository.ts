@@ -1,3 +1,8 @@
+import { Follow } from '../follows/follow.entity.js';
+import { ReviewLike } from '../likes/like.entity.js';
+import { PlaylistSave } from '../playlist/playlist-save.entity.js';
+import { UserFavoriteRelease } from '../profiles/user-favorite-release.entity.js';
+import { UserFavoriteTrack } from '../profiles/user-favorite-track.entity.js';
 import { LockMode, RequestContext, type EntityManager } from '@mikro-orm/core';
 import { AppError } from '../../shared/errors/app-error.js';
 import { Review } from '../reviews/review.entity.js';
@@ -6,7 +11,7 @@ import { Playlist } from '../playlist/playlist.entity.js';
 import { Comment } from '../comments/comment.entity.js';
 import { User } from './user.entity.js';
 import { UserSanction, type ReviewEvidence } from './user-sanction.entity.js';
-import { effectiveUserStatus } from './user-status.js';
+import { effectiveUserStatus, suspensionEnd } from './user-status.js';
 import { assertAccountEnabled } from './account-access.js';
 import type { SanctionInput } from './user-sanction.validation.js';
 
@@ -160,18 +165,16 @@ export class AdminUserRepository {
         throw new AppError('El estado de la cuenta cambió o no admite esta acción. Actualizá el listado.', 409);
       }
       const now = this.now();
-      if (input.action === 'SUSPEND' && (!input.suspendedUntil || input.suspendedUntil <= now)) {
-        throw new AppError('La suspensión debe terminar en una fecha futura', 400);
-      }
+      const until = input.action === 'SUSPEND' ? suspensionEnd(now) : null;
       const sanction = new UserSanction();
       sanction.user = user;
       sanction.administrator = actor;
       sanction.action = input.action;
       sanction.reason = input.reason;
       sanction.createdAt = now;
-      sanction.suspendedUntil = input.suspendedUntil;
+      sanction.suspendedUntil = until;
 
-      if (input.action !== 'REACTIVATE') {
+      if (input.action === 'BAN') {
         // Los bloqueos esperan a las moderaciones y nuevos reportes en curso.
         await tx.find(Review, { author: id }, { orderBy: { id: 'ASC' }, lockMode: LockMode.PESSIMISTIC_WRITE, refresh: true });
         sanction.removedReviews = (await this.liveEvidence(user, tx)).map(group => ({
@@ -180,12 +183,22 @@ export class AdminUserRepository {
         // La evidencia ya está copiada. Cascadas eliminan reportes recibidos,
         // likes, comentarios y versiones de las reseñas eliminadas.
         await tx.nativeDelete(ReviewReport, { reporter: id });
-        await tx.nativeDelete(Comment, { review: { author: id } });
+        await tx.nativeDelete(ReviewLike, { user: id });
+        // Preserva respuestas ajenas en otras reseñas: pasan a ser comentarios raíz.
+        // En las reseñas eliminadas se borra la conversación completa.
+        await tx.nativeUpdate(Comment, { parent: { author: id } }, { parent: null });
+        await tx.nativeDelete(Comment, { $or: [{ author: id }, { review: { author: id } }] });
         await tx.nativeDelete(Review, { author: id });
-        if (input.action === 'BAN') await tx.nativeDelete(Playlist, { user: id });
+        await tx.nativeDelete(Follow, { $or: [{ follower: id }, { followed: id }] });
+        await tx.nativeDelete(PlaylistSave, { user: id });
+        await tx.nativeDelete(Playlist, { user: id });
+        await tx.nativeDelete(UserFavoriteRelease, { user: id });
+        await tx.nativeDelete(UserFavoriteTrack, { user: id });
+        user.avatarImage = null;
+        user.coverImage = null;
       }
       user.status = input.action === 'SUSPEND' ? 'SUSPENDED' : input.action === 'BAN' ? 'BANNED' : 'ENABLED';
-      user.suspendedUntil = input.suspendedUntil;
+      user.suspendedUntil = until;
       user.sessionVersion += 1;
       await tx.persistAndFlush(sanction);
       return this.detailInContext(user, tx);

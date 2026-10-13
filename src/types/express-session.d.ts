@@ -4,6 +4,8 @@ import 'express-session';
 declare module 'express-session' {
   interface SessionData {
     userVersion?: number;
+    // An OAuth denial may show a notice; it never grants access through requireAuth.
+    pendingAccountRestriction?: { userId: number; expiresAt: number };
     userId?: number;
     spotifyOauthState?: string;
     spotifyReturnUrl?: string;

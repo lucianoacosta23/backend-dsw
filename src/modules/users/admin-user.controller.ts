@@ -61,7 +61,7 @@ export async function suspendUser(req: Request, res: Response) {
   const input = parseSanction(req.body);
   if (input.action !== 'SUSPEND') throw new AppError('La acción debe ser SUSPEND', 400);
   const data = await repository.applySanction(routeId(req.params.id), res.locals.authUser.id, input);
-  res.status(201).json({ message: 'Usuario suspendido y contenido eliminado', data });
+  res.status(201).json({ message: 'Usuario suspendido por siete días. Su contenido se conserva.', data });
 }
 export async function banUser(req: Request, res: Response) {
   const input = parseSanction(req.body);

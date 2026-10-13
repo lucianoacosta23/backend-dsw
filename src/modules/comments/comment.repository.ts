@@ -1,3 +1,5 @@
+import { enabledAccountFilter } from '../users/user-status.js';
+import { lockEnabledUser } from '../users/account-access.js';
 import { LockMode, RequestContext } from '@mikro-orm/core';
 import { EntityManager } from '@mikro-orm/postgresql';
 
@@ -20,13 +22,13 @@ export class CommentRepository {
 
   async findById(id: number): Promise<Comment | null> {
     return this.getEntityManager().findOne(Comment, {
-      id, deletedAt: null, review: { deletedAt: null },
+      id, deletedAt: null, author: enabledAccountFilter(this.now()), review: { deletedAt: null, author: enabledAccountFilter(this.now()) },
     }, { populate: ['author'] });
   }
 
   private findChildren(reviewId: number, parentId: number | null, page: CommentPage): Promise<[Comment[], number]> {
     return this.getEntityManager().findAndCount(Comment, {
-      review: { id: reviewId, deletedAt: null }, parent: parentId, deletedAt: null,
+      review: { id: reviewId, deletedAt: null, author: enabledAccountFilter(this.now()) }, parent: parentId, deletedAt: null, author: enabledAccountFilter(this.now()),
     }, {
       populate: ['author'],
       orderBy: { createdAt: 'asc', id: 'asc' },
@@ -36,7 +38,7 @@ export class CommentRepository {
   }
 
   async findRoots(reviewId: number, page: CommentPage): Promise<[Comment[], number]> {
-    const review = await this.getEntityManager().findOne(Review, { id: reviewId, deletedAt: null });
+    const review = await this.getEntityManager().findOne(Review, { id: reviewId, deletedAt: null, author: enabledAccountFilter(this.now()) });
     if (!review) throw new AppError('Reseña no encontrada', 404);
     return this.findChildren(reviewId, null, page);
   }
@@ -49,8 +51,9 @@ export class CommentRepository {
 
   /** Todas las escrituras bloquean Review primero, igual que ReviewRepository.delete. */
   private async lockReview(tx: EntityManager, reviewId: number): Promise<Review> {
-    const review = await tx.findOne(Review, { id: reviewId, deletedAt: null }, {
+    const review = await tx.findOne(Review, { id: reviewId, deletedAt: null, author: enabledAccountFilter(this.now()) }, {
       lockMode: LockMode.PESSIMISTIC_WRITE,
+      lockTableAliases: ['r0'],
       refresh: true,
     });
     if (!review) throw new AppError('Reseña no encontrada', 404);
@@ -70,10 +73,11 @@ export class CommentRepository {
 
   async create(reviewId: number, data: CreateCommentInput, authorId: number): Promise<Comment> {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, authorId);
       const review = await this.lockReview(tx, reviewId);
       let parent: Comment | null = null;
       if (data.parentId !== undefined) {
-        parent = await tx.findOne(Comment, { id: data.parentId, deletedAt: null }, { refresh: true });
+        parent = await tx.findOne(Comment, { id: data.parentId, deletedAt: null, author: enabledAccountFilter(this.now()) }, { refresh: true });
         if (!parent) throw new AppError('Comentario padre no encontrado', 404);
         if (parent.review.id !== reviewId) {
           throw new AppError('El comentario padre debe pertenecer a la misma reseña', 400);
@@ -94,6 +98,7 @@ export class CommentRepository {
 
   async updateText(id: number, text: string, actor: CommentActor): Promise<Comment> {
     return this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, actor.id);
       const comment = await this.lockCommentReview(tx, id);
       const now = this.now();
       assertCanEditComment(comment, actor, now);
@@ -107,6 +112,7 @@ export class CommentRepository {
 
   async deleteSubtree(id: number, actor: CommentActor): Promise<void> {
     await this.getEntityManager().transactional(async tx => {
+      await lockEnabledUser(tx, actor.id);
       const comment = await this.lockCommentReview(tx, id);
       assertCanDeleteComment(comment, actor);
       // Sin recursión en JS ni límite de profundidad. Se recorren incluso nodos

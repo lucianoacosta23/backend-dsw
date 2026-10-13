@@ -1,3 +1,4 @@
+import { enabledAccountSql, enabledAccountFilter } from '../users/user-status.js';
 import { RequestContext } from '@mikro-orm/core';
 
 import { Review } from '../reviews/review.entity.js';
@@ -146,6 +147,7 @@ export class ActivityRepository {
         SELECT COUNT(*)::int AS total
         FROM review AS r
         WHERE r.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM "user" visible_author WHERE visible_author.id = r.author_id AND ${enabledAccountSql('visible_author')})
           AND ${condition}
       `,
       [userId],
@@ -156,6 +158,7 @@ export class ActivityRepository {
         SELECT r.id
         FROM review AS r
         WHERE r.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM "user" visible_author WHERE visible_author.id = r.author_id AND ${enabledAccountSql('visible_author')})
           AND ${condition}
         ORDER BY r.created_at DESC, r.id DESC
         LIMIT ? OFFSET ?
@@ -178,6 +181,7 @@ export class ActivityRepository {
       {
         id: { $in: rows.map(row => row.id) },
         deletedAt: null,
+        author: enabledAccountFilter(),
       },
       {
         populate: [
@@ -255,6 +259,7 @@ export class ActivityRepository {
       WHERE r.author_id = ?
         AND l.user_id <> ?
         AND r.deleted_at IS NULL
+        AND EXISTS (SELECT 1 FROM "user" visible_author WHERE visible_author.id = r.author_id AND ${enabledAccountSql('visible_author')})
 
       UNION ALL
 
@@ -276,9 +281,11 @@ export class ActivityRepository {
         ON parent.id = c.parent_id
         AND parent.review_id = c.review_id
         AND parent.deleted_at IS NULL
+        AND EXISTS (SELECT 1 FROM "user" parent_author WHERE parent_author.id = parent.author_id AND ${enabledAccountSql('parent_author')})
       WHERE c.author_id <> ?
         AND c.deleted_at IS NULL
         AND r.deleted_at IS NULL
+        AND EXISTS (SELECT 1 FROM "user" visible_author WHERE visible_author.id = r.author_id AND ${enabledAccountSql('visible_author')})
         AND (c.parent_id IS NULL OR parent.id IS NOT NULL)
         AND (
           r.author_id = ?
@@ -297,6 +304,8 @@ export class ActivityRepository {
       `
         SELECT COUNT(*)::int AS total
         FROM (${eventsSql}) AS events
+        JOIN "user" AS u ON u.id = events.author_id
+        WHERE ${enabledAccountSql('u')}
       `,
       params,
     )) as Array<{ total: number }>;
@@ -318,6 +327,7 @@ export class ActivityRepository {
   u.username
         FROM (${eventsSql}) AS events
         JOIN "user" AS u ON u.id = events.author_id
+        WHERE ${enabledAccountSql('u')}
         ORDER BY
           events.created_at DESC,
           events.type ASC,
@@ -350,6 +360,7 @@ export class ActivityRepository {
           {
             id: { $in: reviewIds },
             deletedAt: null,
+        author: enabledAccountFilter(),
           },
           {
             populate: [

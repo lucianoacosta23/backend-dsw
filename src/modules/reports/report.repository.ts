@@ -1,3 +1,4 @@
+import { enabledAccountFilter } from '../users/user-status.js';
 import { LockMode, RequestContext } from '@mikro-orm/core';
 
 import { AppError } from '../../shared/errors/app-error.js';
@@ -51,9 +52,10 @@ export class ReviewReportRepository {
       // Impide que se borre la reseña mientras se registra el reporte.
       const review = await tx.findOne(
         Review,
-        { id: reviewId, deletedAt: null },
+        { id: reviewId, deletedAt: null, author: enabledAccountFilter(this.now()) },
         {
           lockMode: LockMode.PESSIMISTIC_READ,
+          lockTableAliases: ['r0'],
           refresh: true,
         },
       );

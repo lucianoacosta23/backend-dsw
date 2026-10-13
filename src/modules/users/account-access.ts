@@ -6,7 +6,7 @@ import { effectiveUserStatus } from './user-status.js';
 
 export class AccountRestrictionError extends AppError {
   constructor(public readonly code: 'ACCOUNT_SUSPENDED' | 'ACCOUNT_BANNED', public readonly suspendedUntil: string | null) {
-    super(code === 'ACCOUNT_BANNED' ? 'Tu cuenta está baneada por tiempo indefinido.' : `Tu cuenta está suspendida hasta ${suspendedUntil}.`, 403);
+    super(code === 'ACCOUNT_BANNED' ? 'Tu cuenta está baneada por tiempo indefinido.' : `Tu cuenta está suspendida hasta ${new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(suspendedUntil!))} (UTC).`, 403);
     Object.setPrototypeOf(this, AccountRestrictionError.prototype);
   }
 }

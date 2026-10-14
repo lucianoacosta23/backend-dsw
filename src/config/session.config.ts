@@ -35,6 +35,7 @@ export function createSessionMiddleware() {
       user,
       password,
     },
+    pruneSessionInterval: 60, // 60 segundos
     tableName: 'session',
     createTableIfMissing: false,
   });
@@ -49,7 +50,8 @@ export function createSessionMiddleware() {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 1000 * 60 * 30,
+ //     maxAge: 1000 * 60 * 30, // 30 minutos
+      maxAge: 1000 * 60, // 1 minuto
       path: '/',
     },
   });

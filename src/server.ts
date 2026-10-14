@@ -14,7 +14,7 @@ async function startServer() {
   const app = createApp(orm);
 
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 

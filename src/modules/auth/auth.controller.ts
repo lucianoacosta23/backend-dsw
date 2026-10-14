@@ -456,13 +456,20 @@ export async function spotifyCallback(
       );
     }
 
+    const frontendUrl = (
+      process.env.FRONTEND_URL ?? 'http://127.0.0.1:4200'
+    ).replace(/\/+$/, '');
+
     const spotifyError = queryString(req.query.error);
+
+    if (spotifyError === 'access_denied') {
+      res.redirect(303, `${frontendUrl}/`);
+      return;
+    }
 
     if (spotifyError) {
       throw new AppError(
-        spotifyError === 'access_denied'
-          ? 'El usuario canceló la autorización de Spotify'
-          : 'Spotify no pudo autorizar el acceso',
+        'Spotify no pudo autorizar el acceso',
         400,
       );
     }
@@ -483,10 +490,6 @@ export async function spotifyCallback(
     const user = await authRepository.findBySpotifyId(
       profile.accountId,
     );
-
-    const frontendUrl = (
-      process.env.FRONTEND_URL ?? 'http://127.0.0.1:4200'
-    ).replace(/\/+$/, '');
 
     await regenerateSession(req);
 

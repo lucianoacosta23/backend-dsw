@@ -53,7 +53,11 @@ export function createSessionMiddleware() {
         createTableIfMissing: false,
       })
     : createLocalSessionStore();
-
+console.log('[SESSION DEBUG]', {
+  nodeEnv: process.env.NODE_ENV,
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  secure: process.env.NODE_ENV === 'production',
+});
   return session({
     name: 'jukeboxd.sid',
     secret,

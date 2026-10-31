@@ -11,13 +11,15 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 export default function createApp(orm: MikroORM) {
   const app = express();
 
-  app.use(
-  cors({
-    origin: 'http://127.0.0.1:4200',
+ const allowedOrigins = [
+  'http://127.0.0.1:4200',
+  'https://frontend-dsw-five.vercel.app',
+];
 
-    credentials: true,
-  }),
-);
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
   app.use(express.json());
 
   app.use(createSessionMiddleware());

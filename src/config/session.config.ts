@@ -60,13 +60,12 @@ export function createSessionMiddleware() {
     store,
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-   sameSite: 'lax',
-     maxAge: 1000 * 60 * 30, // 30 minutos
-     // maxAge: 1000 * 60, // 1 minuto
-      path: '/',
-    },
+cookie: {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 1000 * 60 * 30,
+  path: '/',
+},
   });
 }

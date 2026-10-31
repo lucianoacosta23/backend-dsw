@@ -24,13 +24,25 @@ import { ReviewLike } from '../modules/likes/like.entity.js';
 import { ReviewReport } from '../modules/reports/report.entity.js';
 import { Playlist } from '../modules/playlist/playlist.entity.js'
 
-const dbConfig = {
-  host: process.env.DB_HOST ?? 'localhost',
-  port: Number(process.env.DB_PORT ?? 5432),
-  dbName: process.env.DB_NAME ?? 'postgres',
-  user: process.env.DB_USER ?? 'postgres',
-  password: process.env.DB_PASSWORD ?? '',
-};
+const neonUrl =
+  process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+
+const dbConfig = neonUrl
+  ? {
+      clientUrl: neonUrl,
+      driverOptions: {
+        connection: {
+          ssl: { rejectUnauthorized: true },
+        },
+      },
+    }
+  : {
+      host: process.env.DB_HOST ?? 'localhost',
+      port: Number(process.env.DB_PORT ?? 5432),
+      dbName: process.env.DB_NAME ?? 'postgres',
+      user: process.env.DB_USER ?? 'postgres',
+      password: process.env.DB_PASSWORD ?? '',
+    };
 
 export default defineConfig({
 

@@ -3,15 +3,7 @@ import connectPgSimple from 'connect-pg-simple';
 
 const PgSessionStore = connectPgSimple(session);
 
-export function createSessionMiddleware() {
-  const secret = process.env.SESSION_SECRET;
-
-  if (!secret || secret.length < 32) {
-    throw new Error(
-      'SESSION_SECRET debe tener al menos 32 caracteres',
-    );
-  }
-
+function createLocalSessionStore() {
   const database = process.env.DB_NAME;
   const user = process.env.DB_USER;
   const password = process.env.DB_PASSWORD;
@@ -27,7 +19,7 @@ export function createSessionMiddleware() {
     throw new Error('DB_PORT no es válido');
   }
 
-  const store = new PgSessionStore({
+  return new PgSessionStore({
     conObject: {
       host: process.env.DB_HOST ?? 'localhost',
       port,
@@ -35,10 +27,32 @@ export function createSessionMiddleware() {
       user,
       password,
     },
-    pruneSessionInterval: 60, // 60 segundos
+    pruneSessionInterval: 60,
     tableName: 'session',
     createTableIfMissing: false,
   });
+}
+
+export function createSessionMiddleware() {
+  const secret = process.env.SESSION_SECRET;
+
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'SESSION_SECRET debe tener al menos 32 caracteres',
+    );
+  }
+
+  const connectionString =
+    process.env.DATABASE_URL ?? process.env.DATABASE_URL_UNPOOLED;
+
+  const store = connectionString
+    ? new PgSessionStore({
+        conString: connectionString,
+        pruneSessionInterval: 60,
+        tableName: 'session',
+        createTableIfMissing: false,
+      })
+    : createLocalSessionStore();
 
   return session({
     name: 'jukeboxd.sid',
@@ -49,9 +63,9 @@ export function createSessionMiddleware() {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
- //     maxAge: 1000 * 60 * 30, // 30 minutos
-      maxAge: 1000 * 60, // 1 minuto
+   sameSite: 'lax',
+     maxAge: 1000 * 60 * 30, // 30 minutos
+     // maxAge: 1000 * 60, // 1 minuto
       path: '/',
     },
   });

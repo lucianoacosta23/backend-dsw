@@ -11,6 +11,8 @@ import { errorMiddleware } from './middlewares/error.middleware.js';
 export default function createApp(orm: MikroORM) {
   const app = express();
 
+  app.set('trust proxy', 1);
+
  const allowedOrigins = [
   'http://127.0.0.1:4200',
   'https://frontend-dsw-five.vercel.app',

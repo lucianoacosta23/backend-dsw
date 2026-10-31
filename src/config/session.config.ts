@@ -53,11 +53,8 @@ export function createSessionMiddleware() {
         createTableIfMissing: false,
       })
     : createLocalSessionStore();
-console.log('[SESSION DEBUG]', {
-  nodeEnv: process.env.NODE_ENV,
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  secure: process.env.NODE_ENV === 'production',
-});
+
+const isProduction = process.env.NODE_ENV?.toLowerCase() === 'production';
   return session({
     name: 'jukeboxd.sid',
     secret,
@@ -66,8 +63,8 @@ console.log('[SESSION DEBUG]', {
     saveUninitialized: false,
 cookie: {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'lax',
   maxAge: 1000 * 60 * 30,
   path: '/',
 },
